@@ -1,0 +1,59 @@
+import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import {UsersService} from "../users/users.service";
+import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
+import 'dotenv/config'
+import {RegisterDto} from "./dto/register.dto";
+import * as schema from '../db/schema';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @Inject(UsersService) private readonly usersService: UsersService,
+    @Inject(JwtService) private readonly jwtService: JwtService
+  ) {}
+
+  async signUp(registerDto: RegisterDto) {
+    // Verify if email is unique
+    const exist = await this.usersService.findByEmail(registerDto.email);
+
+    if (exist) {
+      throw new UnauthorizedException('Email already exists');
+    }
+
+    const user = await this.usersService.create(registerDto);
+
+    return this.createToken(user[0]);
+  }
+
+  async login(email: string, password: string) {
+    const user = await this.usersService.findByEmail(email) as schema.User;
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // compare password
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordMatch) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return this.createToken(user);
+  }
+
+  private async createToken(user: schema.User) {
+    const payload = { email: user.email, sub: user.id };
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      },
+      access_token: await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_EXPIRES_IN ?? '6h'}),
+    };
+  }
+}
