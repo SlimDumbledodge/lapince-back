@@ -17,13 +17,13 @@ export class UsersService {
    * Create a new user
    * => This function will hash the password before saving it to the database
    * @param createUserDto
-   * @returns schema.users.$inferInsert
+   * @returns schema.User
    */
   async create(createUserDto: CreateUserDto): Promise<schema.User> {
     // Verify if the email is unique in db
     const emailResponse = await this.findByEmail(createUserDto.email)
 
-    if (emailResponse !== null || emailResponse !== undefined) {
+    if (emailResponse !== null && emailResponse !== undefined) {
       throw new BadRequestException('This email is already set !')
     }
 
@@ -41,10 +41,19 @@ export class UsersService {
     return newUser[0]
   }
 
+  /**
+   * Get all users
+   * @returns schema.User[]
+   */
   async findAll(): Promise<schema.User[]> {
     return this.db.select().from(schema.users).orderBy(asc(schema.users.lastName))
   }
 
+  /**
+   * Get a user by is Id
+   * @param id 
+   * @returns schema.User
+   */
   async findOne(id: string): Promise<schema.User> {
     const result = await this.db.select().from(schema.users).where(eq(schema.users.id, id))
 
@@ -55,18 +64,29 @@ export class UsersService {
     return result[0]
   }
 
+  /**
+   * Get a user by is email
+   * @param email 
+   * @returns schema.User | null
+   */
   async findByEmail(email: string): Promise<schema.User|null> {
     const result = await this.db.select().from(schema.users).where(eq(schema.users.email, email))
 
     return result[0]
   }
 
+  /**
+   * Update a user
+   * @param id 
+   * @param updateUserDto 
+   * @returns schema.User
+   */
   async update(id: string, updateUserDto: UpdateUserDto): Promise<schema.User> {
     if (updateUserDto.email) {
       // Verify if the email is not already used
       const emailResponse = await this.findByEmail(updateUserDto.email)
 
-      if (emailResponse !== null) {
+      if (emailResponse !== null && emailResponse !== undefined) {
         if (emailResponse.id !== id) {
           throw new BadRequestException('This email is already set !')
         }
