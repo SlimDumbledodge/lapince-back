@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { DrizzleModule } from './db/drizzle/drizzle.module';
 import { ConfigModule } from '@nestjs/config';
 
@@ -11,7 +9,5 @@ import { ConfigModule } from '@nestjs/config';
     }),
     DrizzleModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}
