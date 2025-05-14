@@ -1,0 +1,58 @@
+version: '3.9'
+
+services:
+  la-pince-backend:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - la-pince-db
+      - la-pince-cache
+
+  la-pince-db:
+    image: postgres:15
+    restart: always
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  la-pince-cache:
+    image: valkey/valkey:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+
+  la-pince-adminer:
+    image: adminer:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - la-pince-db
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - la-pince-frontend
+      - la-pince-backend
+
+volumes:
+  pgdata:
+  valkey-data:
