@@ -30,7 +30,7 @@ export class AuthService {
       accountName: registerDto.accountName,
       amount: registerDto.amount,
     }, user.id)
-    console.log(userAccount, user)
+
     const data = {
       ...user,
       userAccountId: userAccount.id,
@@ -60,7 +60,7 @@ export class AuthService {
 
   private async createToken(user: schema.User & {accountName: string, amount: number}) {
     const payload = { email: user.email, sub: user.id };
-    console.log(user)
+
     return {
       user: {
         id: user.id,
