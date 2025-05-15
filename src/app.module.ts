@@ -5,6 +5,7 @@ import { UsersModule } from './users/users.module';
 import {AuthModule} from './auth/auth.module';
 import {AuthMiddleware} from "./auth/auth.middleware";
 import { UserAccountModule } from './user-account/user-account.module';
+import { BudgetModule } from './budget/budget.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { UserAccountModule } from './user-account/user-account.module';
     DrizzleModule,
     UsersModule,
     AuthModule,
-    UserAccountModule
+    UserAccountModule,
+    BudgetModule
   ],
 })
 export class AppModule implements NestModule {

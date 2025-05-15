@@ -1,0 +1,101 @@
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { CreateBudgetDto } from './dto/create-budget.dto';
+import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
+import * as schema from 'src/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+@Injectable()
+export class BudgetService {
+  constructor(
+    @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
+
+  /**
+   * Create a new budget for a user
+   * @param createBudgetDto 
+   * @param userId
+   * @returns 
+   */
+  async create(createBudgetDto: CreateBudgetDto, userId: string): Promise<schema.Budget>  {
+    // Verify if the category exists
+    // TODO : Verify if the category exists
+
+    const budget = await this.db.insert(schema.budgets).values({
+      ...createBudgetDto,
+      userId,
+      createdAt: new Date(),
+    }).returning();
+
+    return budget[0];
+  }
+
+  /**
+   * FInd all budgets by user id
+   * @param userId
+   * @returns 
+   */
+  async findAllByUserId(userId: string): Promise<schema.Budget[]> {
+    return this.db.select().from(schema.budgets).where(eq(schema.budgets.userId, userId));
+  }
+
+  /**
+   * Get a budget by is id
+   * => Verify if the budget is owned by the user
+   * @param id 
+   * @param userId
+   * @returns 
+   */
+  async findOne(id: string, userId: string): Promise<schema.Budget> {
+    const result = await this.db
+      .select()
+      .from(schema.budgets)
+      .where(and(eq(schema.budgets.id, id), eq(schema.budgets.userId, userId)));
+
+    if (result.length === 0) {
+      throw new NotFoundException('Budget not found');
+    }
+
+    return result[0];
+  }
+
+  /**
+   * Update a budget by id
+   * @param id (budget Id)
+   * @param updateBudgetDto
+   * @param userId 
+   * @returns 
+   */
+  async update(id: string, updateBudgetDto: UpdateBudgetDto, userId: string): Promise<schema.Budget> {
+    const budget = await this.findOne(id, userId);
+    if (!budget) {
+      throw new NotFoundException('Budget not found');
+    }
+
+    const result = await this.db
+     .update(schema.budgets)
+     .set({
+      totalAmount: updateBudgetDto.totalAmount,
+      reccuringFrequency: updateBudgetDto.reccuringFrequency,
+      updatedAt: new Date(),
+     })
+     .where(eq(schema.budgets.id, id))
+     .returning();
+
+    return result[0];
+  }
+
+  /**
+   * Delete a budget by id
+   * @param id (budget Id)
+   * @param userId
+   * @returns 
+   */
+  async remove(id: string, userId: string): Promise<void> {
+    return this.db
+      .delete(schema.budgets)
+      .where(and(eq(schema.budgets.id, id), eq(schema.budgets.userId, userId)))
+      .then(() => undefined);
+  }
+}
