@@ -12,7 +12,7 @@ export class AuthController {
    * Register a new user
    * @param registerDto
    */
-  @Post('register')
+  @Post('signup')
   @UsePipes(new ZodValidationPipe(RegisterDtoSchema))
   register(@Body() registerDto: RegisterDto) {
     return this.authService.signUp(registerDto);
@@ -22,7 +22,7 @@ export class AuthController {
    * Login a user
    * @param loginDto
    */
-  @Post('login')
+  @Post('signin')
   @UsePipes(new ZodValidationPipe(LoginDtoSchema))
   @HttpCode(HttpStatus.OK)
   login(@Body() loginDto: LoginDto) {

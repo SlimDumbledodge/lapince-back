@@ -14,13 +14,6 @@ export class AuthService {
   ) {}
 
   async signUp(registerDto: RegisterDto) {
-    // Verify if email is unique
-    const exist = await this.usersService.findByEmail(registerDto.email);
-
-    if (exist) {
-      throw new UnauthorizedException('Email already exists');
-    }
-
     const user = await this.usersService.create(registerDto);
 
     return this.createToken(user[0]);
