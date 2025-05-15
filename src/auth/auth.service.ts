@@ -14,7 +14,12 @@ export class AuthService {
   ) {}
 
   async signUp(registerDto: RegisterDto) {
-    const user = await this.usersService.create(registerDto);
+    const user = await this.usersService.create({
+      firstName: registerDto.firstName,
+      lastName: registerDto.lastName,
+      email: registerDto.email,
+      password: registerDto.password
+    });
 
     return this.createToken(user[0]);
   }
