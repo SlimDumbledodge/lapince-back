@@ -1,0 +1,200 @@
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
+import * as schema from 'src/db/schema';
+import { eq, and } from 'drizzle-orm';
+import { UserAccountService } from 'src/user-account/user-account.service';
+import { CategoriesService } from 'src/categories/categories.service';
+
+@Injectable()
+export class TransactionsService {
+  constructor(
+    @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
+    @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
+    @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
+  ) {}
+
+  /**
+   * Create a new transaction
+   * @param createTransactionDto 
+   * @param userId
+   * @returns 
+   */
+  async create(createTransactionDto: CreateTransactionDto, userId: string): Promise<schema.Transaction> {
+    // Get the user account
+    const userAccount = await this.userAccountService.findOneByUserId(userId);
+    if (!userAccount) {
+      throw new NotFoundException('User account not found');
+    }
+
+    // validate the transaction category
+    const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    // create the transaction
+    const result = await this.db.insert(schema.transactions).values({
+      ...createTransactionDto,
+      date : new Date(createTransactionDto.date),
+      reccuringStartDate : createTransactionDto.RecurringStartDate ? new Date(createTransactionDto.RecurringStartDate) : null,
+      reccuringEndDate : createTransactionDto.RecurringEndDate ? new Date(createTransactionDto.RecurringEndDate) : null,
+      userAccountId: userAccount.id,
+      createdAt: new Date(),
+    } as unknown as schema.NewTransaction).returning();
+
+    // verify in the category budget is enough and update it
+
+    // Verify if the transaction is recurring
+    // TODO : make the recurring system
+
+    // return the transaction
+    return result[0];
+  }
+
+  /**
+   * Get all transactions for a user with pagination
+   * @param userId
+   * @param limit
+   * @param page
+   * @returns 
+   */
+  async findAll(userId: string, limit: number = 10, page: number = 0): Promise<{data: schema.Transaction[], limit: number, page: number}> {
+    // Get the user account
+    const userAccount = await this.userAccountService.findOneByUserId(userId);
+
+    if (!userAccount) {
+      throw new NotFoundException('User account not found');
+    }
+
+    const result = await this.db
+      .select({
+        transaction: schema.transactions,
+        category: schema.categories
+      })
+      .from(schema.transactions)
+      .leftJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
+      .where(eq(schema.transactions.userAccountId, userAccount.id))
+      .limit(limit)
+      .offset(page * limit)
+      .orderBy(schema.transactions.createdAt)
+    
+    const data = result.map(row => ({
+      ...row.transaction,
+      category: row.category ?? null
+    }));
+
+    return {
+      data,
+      limit: limit,
+      page: page,
+    }
+  }
+
+  /**
+   * Get a transaction by id
+   * @param id 
+   * @param userId
+   * @returns 
+   */
+  async findOne(id: string, userId: string): Promise<schema.Transaction> {
+    // Get the user account
+    const userAccount = await this.userAccountService.findOneByUserId(userId);
+    if (!userAccount) {
+      throw new NotFoundException('User account not found');
+    }
+
+    const result = await this.db
+     .select({
+       transaction: schema.transactions,
+       category: schema.categories
+     })
+     .from(schema.transactions)
+     .leftJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
+     .where(and(eq(schema.transactions.id, id), eq(schema.transactions.userAccountId, userAccount.id)))
+
+    const data = result.map(row => ({
+      ...row.transaction,
+      category: row.category?? null
+    }));
+
+    if (result.length === 0) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    return data[0];
+  }
+
+  /**
+   * Update a transaction
+   * @param id 
+   * @param userId
+   * @param updateTransactionDto 
+   * @returns 
+   */
+  async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string): Promise<schema.Transaction> {
+    // Get the user account
+    const userAccount = await this.userAccountService.findOneByUserId(userId);
+    if (!userAccount) {
+      throw new NotFoundException('User account not found');
+    }
+
+    // Get the transaction
+    const transaction = await this.findOne(id, userId);
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    // If change the category, verify it
+    if (updateTransactionDto.categoryId) {
+      const category = await this.categoriesService.findOne(updateTransactionDto.categoryId, userId);
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+    }
+
+    // update the transaction
+    const result = await this.db
+    .update(schema.transactions)
+    .set({
+      ...updateTransactionDto,
+      date : updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
+      reccuringStartDate : updateTransactionDto.RecurringStartDate ? new Date(updateTransactionDto.RecurringStartDate) : transaction.reccuringStartDate,
+      reccuringEndDate : updateTransactionDto.RecurringEndDate ? new Date(updateTransactionDto.RecurringEndDate) : transaction.reccuringEndDate,
+      updatedAt: new Date(),
+    } as unknown as schema.Transaction).returning()
+
+    // Verify and update the budget
+
+    // verify if the transaction is recurring
+    // TODO : make the recurring system
+
+    return result[0];
+  }
+
+  /**
+   * Delete a transaction
+   * @param id 
+   * @param userId
+   * @returns 
+   */
+  async remove(id: string, userId: string): Promise<void> {
+    // Get the user account
+    const userAccount = await this.userAccountService.findOneByUserId(userId);
+    if (!userAccount) {
+      throw new NotFoundException('User account not found');
+    }
+    // Get the transaction
+    const transaction = await this.findOne(id, userId);
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+    // Delete the transaction
+    return this.db
+    .delete(schema.transactions)
+    .where(eq(schema.transactions.id, id))
+    .then(() => undefined)
+  }
+}
