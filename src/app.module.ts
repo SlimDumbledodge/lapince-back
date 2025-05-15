@@ -6,6 +6,7 @@ import {AuthModule} from './auth/auth.module';
 import {AuthMiddleware} from "./auth/auth.middleware";
 import { UserAccountModule } from './user-account/user-account.module';
 import { BudgetModule } from './budget/budget.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -16,7 +17,8 @@ import { BudgetModule } from './budget/budget.module';
     UsersModule,
     AuthModule,
     UserAccountModule,
-    BudgetModule
+    BudgetModule,
+    TransactionsModule
   ],
 })
 export class AppModule implements NestModule {
