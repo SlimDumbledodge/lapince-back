@@ -7,5 +7,6 @@ import { DrizzleModule } from 'src/db/drizzle/drizzle.module';
   imports: [DrizzleModule],
   controllers: [CategoriesController],
   providers: [CategoriesService],
+  exports: [CategoriesService],
 })
 export class CategoriesModule {}

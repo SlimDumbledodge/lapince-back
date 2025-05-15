@@ -5,11 +5,13 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { CategoriesService } from 'src/categories/categories.service';
 
 @Injectable()
 export class BudgetService {
   constructor(
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
+    @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
   ) {}
 
   /**
@@ -20,7 +22,10 @@ export class BudgetService {
    */
   async create(createBudgetDto: CreateBudgetDto, userId: string): Promise<schema.Budget>  {
     // Verify if the category exists
-    // TODO : Verify if the category exists
+    const category = await this.categoriesService.findOne(createBudgetDto.categoryId, userId);
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
 
     const budget = await this.db.insert(schema.budgets).values({
       ...createBudgetDto,
