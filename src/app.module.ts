@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import {AuthModule} from './auth/auth.module';
 import {AuthMiddleware} from "./auth/auth.middleware";
+import { UserAccountModule } from './user-account/user-account.module';
 
 @Module({
   imports: [
@@ -12,7 +13,8 @@ import {AuthMiddleware} from "./auth/auth.middleware";
     }),
     DrizzleModule,
     UsersModule,
-    AuthModule
+    AuthModule,
+    UserAccountModule
   ],
 })
 export class AppModule implements NestModule {
