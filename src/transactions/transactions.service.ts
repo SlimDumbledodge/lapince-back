@@ -70,17 +70,24 @@ export class TransactionsService {
     }
 
     const result = await this.db
-      .select()
+      .select({
+        transaction: schema.transactions,
+        category: schema.categories
+      })
       .from(schema.transactions)
+      .leftJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
       .where(eq(schema.transactions.userAccountId, userAccount.id))
       .limit(limit)
       .offset(page * limit)
       .orderBy(schema.transactions.createdAt)
-    // TODO : join the category table
-    // .innerJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
+    
+    const data = result.map(row => ({
+      ...row.transaction,
+      category: row.category ?? null
+    }));
 
     return {
-      data: result,
+      data,
       limit: limit,
       page: page,
     }
@@ -100,17 +107,24 @@ export class TransactionsService {
     }
 
     const result = await this.db
-     .select()
+     .select({
+       transaction: schema.transactions,
+       category: schema.categories
+     })
      .from(schema.transactions)
+     .leftJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
      .where(and(eq(schema.transactions.id, id), eq(schema.transactions.userAccountId, userAccount.id)))
-    // TODO : join the category table
-    // .innerJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
 
-    if (!result) {
+    const data = result.map(row => ({
+      ...row.transaction,
+      category: row.category?? null
+    }));
+
+    if (result.length === 0) {
       throw new NotFoundException('Transaction not found');
     }
 
-    return result[0];
+    return data[0];
   }
 
   /**
