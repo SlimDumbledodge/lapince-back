@@ -1,4 +1,5 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateCategoryDto } from './create-category.dto';
+import { z } from 'zod';
+import { CreateCategorySchema } from './create-category.dto';
 
-export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}
+export const UpdateCategorySchema = CreateCategorySchema.partial();
+export type UpdateCategoryDto = z.infer<typeof UpdateCategorySchema>;
