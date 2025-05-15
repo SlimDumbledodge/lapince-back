@@ -6,13 +6,14 @@ import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
-import dayjs from 'dayjs';
+import { CategoriesService } from 'src/categories/categories.service';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
     @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
+    @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
   ) {}
 
   /**
@@ -29,7 +30,10 @@ export class TransactionsService {
     }
 
     // validate the transaction category
-    // TODO : make the category system
+    const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
 
     // create the transaction
     const result = await this.db.insert(schema.transactions).values({
@@ -130,6 +134,12 @@ export class TransactionsService {
     }
 
     // If change the category, verify it
+    if (updateTransactionDto.categoryId) {
+      const category = await this.categoriesService.findOne(updateTransactionDto.categoryId, userId);
+      if (!category) {
+        throw new NotFoundException('Category not found');
+      }
+    }
 
     // update the transaction
     const result = await this.db
