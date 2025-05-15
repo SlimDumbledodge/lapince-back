@@ -1,4 +1,6 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateTransactionDto } from './create-transaction.dto';
+import { z } from 'zod';
+import { CreateTransactionSchema } from './create-transaction.dto';
 
-export class UpdateTransactionDto extends PartialType(CreateTransactionDto) {}
+export const UpdateTransactionSchema = CreateTransactionSchema.partial();
+
+export type UpdateTransactionDto = z.infer<typeof UpdateTransactionSchema>;
