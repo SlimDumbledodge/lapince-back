@@ -6,11 +6,13 @@ import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from '../db/schema';
 import { eq, asc } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
+import { UserAccountService } from 'src/user-account/user-account.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @Inject(DrizzleAsyncProvider) private db: NodePgDatabase<typeof schema>,
+    @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
   ) {}
 
   /**
@@ -54,14 +56,26 @@ export class UsersService {
    * @param id 
    * @returns schema.User
    */
-  async findOne(id: string): Promise<schema.User> {
-    const result = await this.db.select().from(schema.users).where(eq(schema.users.id, id))
+  async findOne(id: string): Promise<schema.User & {accountId: string, accountName: string, amount: number}> {
+    const result = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, id))
+      .innerJoin(
+       schema.userAccounts,
+       eq(schema.userAccounts.userId, schema.users.id)
+      )
 
     if (result.length === 0) {
-      throw new NotFoundException(`A user with this id ()`)
+      throw new NotFoundException(`A user with this id (${id})`)
     }
 
-    return result[0]
+    return {
+      ...result[0].users,
+      accountId: result[0].user_accounts.id,
+      accountName: result[0].user_accounts.accountName,
+      amount: result[0].user_accounts.amount,
+    }
   }
 
   /**
@@ -69,10 +83,25 @@ export class UsersService {
    * @param email 
    * @returns schema.User | null
    */
-  async findByEmail(email: string): Promise<schema.User|null> {
-    const result = await this.db.select().from(schema.users).where(eq(schema.users.email, email))
+  async findByEmail(email: string): Promise<(schema.User & {accountId: string, accountName: string, amount: number}) |null> {
+    const result = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email))
 
-    return result[0]
+    if (result.length === 0) {
+      return null
+    }
+
+    // Get the user account details
+    const userAccount = await this.userAccountService.findOneByUserId(result[0].id)
+
+    return {
+      ...result[0],
+      accountId: userAccount?.id ?? null,
+      accountName: userAccount?.accountName ?? null,
+      amount: userAccount?.amount ?? null,
+    }
   }
 
   /**

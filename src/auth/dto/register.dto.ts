@@ -12,7 +12,7 @@ export const RegisterDtoSchema = z.object({
     .refine((password) => /[A-Z]/g.test(password ?? ""), 'Password must contain at least one uppercase letter')
     .refine((password) => /[0-9]/g.test(password ?? ""), 'Password must contain at least one digit')
     .refine((password) => /[^a-zA-Z0-9]/g.test(password ?? ""), 'Password must contain at least one special character'),
-  account_name: z.string().trim(),
+  accountName: z.string().min(1).trim(),
   amount: z.number()
 })
 
