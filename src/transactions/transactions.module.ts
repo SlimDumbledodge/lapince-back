@@ -4,9 +4,15 @@ import { TransactionsController } from './transactions.controller';
 import { DrizzleModule } from 'src/db/drizzle/drizzle.module';
 import { UserAccountModule } from 'src/user-account/user-account.module';
 import { CategoriesModule } from 'src/categories/categories.module';
+import { BudgetModule } from 'src/budget/budget.module';
 
 @Module({
-  imports: [DrizzleModule, UserAccountModule, CategoriesModule],
+  imports: [
+    DrizzleModule, 
+    UserAccountModule, 
+    CategoriesModule, 
+    BudgetModule
+  ],
   controllers: [TransactionsController],
   providers: [TransactionsService],
 })

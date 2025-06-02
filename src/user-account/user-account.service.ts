@@ -69,6 +69,31 @@ export class UserAccountService {
     return result[0];
   }
 
+  /**
+   * Update the total amount after a transaction of a user account by id.
+   * @param userId
+   * @param type (1 = income, 2 = expense)
+   * @param amount
+   * @returns
+   */
+  async updateTotalAmount(userId: string, type: number, amount: number): Promise<schema.UserAccount>  {
+    const userAccount = await this.findOneByUserId(userId)
+
+    if (!userAccount) {
+      throw new Error('User account not found');
+    }
+
+    const totalAmount = userAccount.amount + (type === 1 ? amount : -amount)
+    const result = await this.db.update(schema.userAccounts).set({
+      amount : totalAmount,
+      updatedAt: new Date(),
+    }).where(eq(schema.userAccounts.userId, userId)).returning()
+
+    // TODO : if totalAmount < 0, send a notification to the user
+
+    return result[0];
+  }
+
   async remove(id: string): Promise<void> {
     return this.db.delete(schema.userAccounts).where(eq(schema.userAccounts.id, id))
   }

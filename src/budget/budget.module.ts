@@ -8,5 +8,6 @@ import { CategoriesModule } from 'src/categories/categories.module';
   imports: [DrizzleModule, CategoriesModule],
   controllers: [BudgetController],
   providers: [BudgetService],
+  exports: [BudgetService]
 })
 export class BudgetModule {}

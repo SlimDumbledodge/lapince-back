@@ -7,6 +7,7 @@ import * as schema from 'src/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
+import { BudgetService } from 'src/budget/budget.service';
 
 @Injectable()
 export class TransactionsService {
@@ -14,7 +15,8 @@ export class TransactionsService {
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
     @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
     @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
-  ) {}
+    @Inject(BudgetService) private readonly budgetService: BudgetService,
+  ) { }
 
   /**
    * Create a new transaction
@@ -29,26 +31,39 @@ export class TransactionsService {
       throw new NotFoundException('User account not found');
     }
 
-    // validate the transaction category
-    const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
+    return this.db.transaction(async (tx) => {
+      // validate the transaction category
+      const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
 
-    // create the transaction
-    const result = await this.db.insert(schema.transactions).values({
-      ...createTransactionDto,
-      date : new Date(createTransactionDto.date),
-      reccuringStartDate : createTransactionDto.RecurringStartDate ? new Date(createTransactionDto.RecurringStartDate) : null,
-      reccuringEndDate : createTransactionDto.RecurringEndDate ? new Date(createTransactionDto.RecurringEndDate) : null,
-      userAccountId: userAccount.id,
-      createdAt: new Date(),
-    } as unknown as schema.NewTransaction).returning();
+      // create the transaction
+      const result = await tx.insert(schema.transactions).values({
+        ...createTransactionDto,
+        date: new Date(createTransactionDto.date),
+        reccuringStartDate: createTransactionDto.RecurringStartDate ? new Date(createTransactionDto.RecurringStartDate) : null,
+        reccuringEndDate: createTransactionDto.RecurringEndDate ? new Date(createTransactionDto.RecurringEndDate) : null,
+        userAccountId: userAccount.id,
+        createdAt: new Date(),
+      } as unknown as schema.NewTransaction).returning();
 
-    // verify in the category budget is enough and update it
+      // Update the actual amount of the category budget
+      await this.budgetService.updateActualAmount(
+        createTransactionDto.categoryId, 
+        userId, 
+        createTransactionDto.transactionType, 
+        createTransactionDto.amount,
+        createTransactionDto.date,
+      );
 
-    // Verify if the transaction is recurring
-    // TODO : make the recurring system
+      // update the total amount of the user account
+      await this.userAccountService.updateTotalAmount(userId, createTransactionDto.transactionType, createTransactionDto.amount);
 
-    // return the transaction
-    return result[0];
+      // Verify if the transaction is recurring
+      // TODO : make the recurring system
+
+      // return the transaction
+      return result[0];
+    })
+
   }
 
   /**
@@ -58,7 +73,7 @@ export class TransactionsService {
    * @param page
    * @returns 
    */
-  async findAll(userId: string, limit: number = 10, page: number = 0): Promise<{data: schema.Transaction[], limit: number, page: number}> {
+  async findAll(userId: string, limit: number = 10, page: number = 0): Promise<{ data: schema.Transaction[], limit: number, page: number }> {
     // Get the user account
     const userAccount = await this.userAccountService.findOneByUserId(userId);
 
@@ -77,7 +92,7 @@ export class TransactionsService {
       .limit(limit)
       .offset(page * limit)
       .orderBy(schema.transactions.createdAt)
-    
+
     const data = result.map(row => ({
       ...row.transaction,
       category: row.category ?? null
@@ -104,17 +119,17 @@ export class TransactionsService {
     }
 
     const result = await this.db
-     .select({
-       transaction: schema.transactions,
-       category: schema.categories
-     })
-     .from(schema.transactions)
-     .leftJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
-     .where(and(eq(schema.transactions.id, id), eq(schema.transactions.userAccountId, userAccount.id)))
+      .select({
+        transaction: schema.transactions,
+        category: schema.categories
+      })
+      .from(schema.transactions)
+      .leftJoin(schema.categories, eq(schema.categories.id, schema.transactions.categoryId))
+      .where(and(eq(schema.transactions.id, id), eq(schema.transactions.userAccountId, userAccount.id)))
 
     const data = result.map(row => ({
       ...row.transaction,
-      category: row.category?? null
+      category: row.category ?? null
     }));
 
     if (result.length === 0) {
@@ -152,23 +167,63 @@ export class TransactionsService {
       }
     }
 
-    // update the transaction
-    const result = await this.db
-    .update(schema.transactions)
-    .set({
-      ...updateTransactionDto,
-      date : updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
-      reccuringStartDate : updateTransactionDto.RecurringStartDate ? new Date(updateTransactionDto.RecurringStartDate) : transaction.reccuringStartDate,
-      reccuringEndDate : updateTransactionDto.RecurringEndDate ? new Date(updateTransactionDto.RecurringEndDate) : transaction.reccuringEndDate,
-      updatedAt: new Date(),
-    } as unknown as schema.Transaction).returning()
+    return await this.db.transaction(async (tx) => {
+      // update the transaction
+      const result = await tx
+        .update(schema.transactions)
+        .set({
+          ...updateTransactionDto,
+          date: updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
+          reccuringStartDate: updateTransactionDto.RecurringStartDate ? new Date(updateTransactionDto.RecurringStartDate) : transaction.reccuringStartDate,
+          reccuringEndDate: updateTransactionDto.RecurringEndDate ? new Date(updateTransactionDto.RecurringEndDate) : transaction.reccuringEndDate,
+          updatedAt: new Date(),
+        } as unknown as schema.Transaction)
+        .where(eq(schema.transactions.id, id))
+        .returning();
 
-    // Verify and update the budget
+      // Get the amount diff and transaction type
+      const amountDiff = updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0;
+      const amountType = amountDiff > 0 ? 1 : 2;
 
-    // verify if the transaction is recurring
-    // TODO : make the recurring system
+      // Verify and update the budget
+      if (updateTransactionDto.amount && (!updateTransactionDto.categoryId || (updateTransactionDto.categoryId === transaction.categoryId))) { // If if the same category       
+        if (amountDiff !== 0) {        
+          await this.budgetService.updateActualAmount(
+            updateTransactionDto.categoryId ?? transaction.categoryId,
+            userId,
+            amountType,
+            Math.abs(amountDiff),
+            updateTransactionDto.date ?? transaction.date,
+          );
+        }
+      } else if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) { // If change the category
+        // Update the actual amount of the old category budget
+        await this.budgetService.updateActualAmount(
+          transaction.categoryId,
+          userId,
+          transaction.transactionsType,
+          -transaction.amount,
+          transaction.date,
+        );
 
-    return result[0];
+        // Update the actual amount of the new category budget
+        await this.budgetService.updateActualAmount(
+          updateTransactionDto.categoryId,
+          userId,
+          updateTransactionDto.transactionType ?? transaction.transactionsType,
+          updateTransactionDto.amount ?? 0,
+          updateTransactionDto.date ?? transaction.date,
+        )
+      }
+
+      // Update the total amount of the user account
+      await this.userAccountService.updateTotalAmount(userId, amountType, Math.abs(amountDiff));
+
+      // verify if the transaction is recurring
+      // TODO : make the recurring system
+
+      return result[0];
+    })
   }
 
   /**
@@ -188,10 +243,27 @@ export class TransactionsService {
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
-    // Delete the transaction
-    return this.db
-    .delete(schema.transactions)
-    .where(eq(schema.transactions.id, id))
-    .then(() => undefined)
+
+    return await this.db.transaction(async (tx) => {
+      // Delete the transaction
+      await tx
+       .delete(schema.transactions)
+       .where(eq(schema.transactions.id, id))
+
+      // Update the actual amount of the category budget
+      await this.budgetService.updateActualAmount(
+        transaction.categoryId,
+        userId,
+        1,
+        transaction.amount,
+        transaction.date,
+      )
+
+      // Update the total amount of the user account
+      await this.userAccountService.updateTotalAmount(userId, 1, transaction.amount);
+
+      // verify if the transaction is recurring
+      // TODO : make the recurring system
+    })
   }
 }
