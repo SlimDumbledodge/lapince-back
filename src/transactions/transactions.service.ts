@@ -44,6 +44,8 @@ export class TransactionsService {
 
     // verify in the category budget is enough and update it
 
+    // update the total amount of the user account
+
     // Verify if the transaction is recurring
     // TODO : make the recurring system
 

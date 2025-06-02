@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, varchar, uuid, boolean, integer, real, json, pgEnum, interval, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, varchar, uuid, boolean, integer, real, json, pgEnum, interval, uniqueIndex, index, date } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -86,7 +86,9 @@ export const budgets = pgTable('budgets', {
   userId: uuid('user_id').references(() => users.id).notNull(),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
   totalAmount: real('total_amount').notNull(),
+  actualAmount: real('actual_amount').default(0).notNull(),
   reccuringFrequency: integer('reccuring_frequency').default(30),
+  reccuringStartDate: date('reccuring_start_date').default(sql`now()`).notNull(),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({
