@@ -7,7 +7,12 @@ import { CategoriesModule } from 'src/categories/categories.module';
 import { BudgetModule } from 'src/budget/budget.module';
 
 @Module({
-  imports: [DrizzleModule, UserAccountModule, CategoriesModule, BudgetModule],
+  imports: [
+    DrizzleModule, 
+    UserAccountModule, 
+    CategoriesModule, 
+    BudgetModule
+  ],
   controllers: [TransactionsController],
   providers: [TransactionsService],
 })

@@ -49,6 +49,7 @@ export class TransactionsService {
       await this.budgetService.updateActualAmount(createTransactionDto.categoryId, userId, createTransactionDto.transactionType, createTransactionDto.amount);
 
       // update the total amount of the user account
+      await this.userAccountService.updateTotalAmount(userId, createTransactionDto.transactionType, createTransactionDto.amount);
 
       // Verify if the transaction is recurring
       // TODO : make the recurring system
