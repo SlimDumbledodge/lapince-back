@@ -8,6 +8,7 @@ import { UserAccountModule } from './user-account/user-account.module';
 import { BudgetModule } from './budget/budget.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { CategoriesModule } from './categories/categories.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { CategoriesModule } from './categories/categories.module';
     UserAccountModule,
     BudgetModule,
     TransactionsModule,
-    CategoriesModule
+    CategoriesModule,
+    NotificationsModule
   ],
 })
 export class AppModule implements NestModule {

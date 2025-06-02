@@ -31,9 +31,6 @@ export class TransactionsService {
 
     // validate the transaction category
     const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
-    if (!category) {
-      throw new NotFoundException('Category not found');
-    }
 
     // create the transaction
     const result = await this.db.insert(schema.transactions).values({

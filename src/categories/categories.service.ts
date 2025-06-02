@@ -48,7 +48,7 @@ export class CategoriesService {
       throw new NotFoundException('Category not found');
     }
 
-    if (result[0].userId !== userId) {
+    if (result[0].userId !== null && result[0].userId !== userId) {
       throw new NotFoundException('This category does not belong to your account');
     }
 
