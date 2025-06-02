@@ -10,17 +10,20 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { CategoriesModule } from './categories/categories.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { BullModule } from '@nestjs/bullmq';
+import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST,
-        port: parseInt(process.env.REDIS_PORT ?? "6379", 10) || 6379,
-      },
+    BullModule.forRootAsync({
+      useFactory: async () => ({
+        connection: {
+          host: process.env.CACHE_HOST,
+          port: parseInt(process.env.CACHE_PORT?? "6379", 10) || 6379,
+        },
+      }),
     }),
     DrizzleModule,
     UsersModule,
@@ -29,7 +32,8 @@ import { BullModule } from '@nestjs/bullmq';
     BudgetModule,
     TransactionsModule,
     CategoriesModule,
-    NotificationsModule
+    NotificationsModule,
+    BudgetResetModule,
   ],
 })
 export class AppModule implements NestModule {

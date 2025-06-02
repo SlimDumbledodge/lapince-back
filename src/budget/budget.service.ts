@@ -8,6 +8,7 @@ import { eq, and } from 'drizzle-orm';
 import { CategoriesService } from 'src/categories/categories.service';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween'
+import { BudgetResetService } from 'src/lib/bullmq/budget-reset/budget-reset.service';
 
 dayjs.extend(isBetween);
 
@@ -16,6 +17,7 @@ export class BudgetService {
   constructor(
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
     @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
+    @Inject(BudgetResetService) private readonly budgetResetService: BudgetResetService,
   ) {}
 
   /**
@@ -34,8 +36,14 @@ export class BudgetService {
     const budget = await this.db.insert(schema.budgets).values({
       ...createBudgetDto,
       userId,
+      lastResetDate: createBudgetDto.reccuringStartDate ?? new Date().toISOString(),
       createdAt: new Date(),
     }).returning();
+
+    // create a schedule for reset the budget
+    if (createBudgetDto.reccuringFrequency) {
+      await this.budgetResetService.scheduleBudgetReset(budget[0]);
+    }
 
     return budget[0];
   }
@@ -163,6 +171,38 @@ export class BudgetService {
 
       // TODO : verify if the budget is reached or not and send a notification if it is reached
 
+      return result[0];
+    }
+  }
+
+  /**
+   * Reset an actual amount of a budget by id
+   * @param id (budget Id)
+   * @returns
+   */
+  async resetActualAmount(id: string): Promise<schema.Budget | null> {
+    const budget = await this.db
+     .select()
+     .from(schema.budgets)
+     .where(eq(schema.budgets.id, id));
+
+    if (budget.length === 0) {
+      return null;
+    }
+
+    const result = await this.db
+    .update(schema.budgets)
+    .set({
+      actualAmount: 0,
+      lastResetDate: new Date().toISOString(),
+      updatedAt: new Date(),
+     })
+    .where(eq(schema.budgets.id, id))
+    .returning();
+
+    if (result.length === 0) {
+      return null;
+    } else {
       return result[0];
     }
   }
