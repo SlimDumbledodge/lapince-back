@@ -179,20 +179,15 @@ export class TransactionsService {
           updatedAt: new Date(),
         } as unknown as schema.Transaction)
         .where(eq(schema.transactions.id, id))
-        .returning()
+        .returning();
+
+      // Get the amount diff and transaction type
+      const amountDiff = updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0;
+      const amountType = amountDiff > 0 ? 1 : 2;
 
       // Verify and update the budget
-      if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId === transaction.categoryId)) { // If if the same category       
-
-        if (
-          typeof updateTransactionDto.amount === 'number' && 
-          updateTransactionDto.amount !== transaction.amount
-        ) {
-          const amountDiff = updateTransactionDto.amount - transaction.amount;
-        
-          // 1 = income, 2 = expense
-          const amountType = amountDiff > 0 ? 1 : 2;
-        
+      if (updateTransactionDto.amount && (!updateTransactionDto.categoryId || (updateTransactionDto.categoryId === transaction.categoryId))) { // If if the same category       
+        if (amountDiff !== 0) {        
           await this.budgetService.updateActualAmount(
             updateTransactionDto.categoryId ?? transaction.categoryId,
             userId,
@@ -201,7 +196,7 @@ export class TransactionsService {
             updateTransactionDto.date ?? transaction.date,
           );
         }
-      } else if (updateTransactionDto.categoryId) { // If change the category
+      } else if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) { // If change the category
         // Update the actual amount of the old category budget
         await this.budgetService.updateActualAmount(
           transaction.categoryId,
@@ -220,6 +215,9 @@ export class TransactionsService {
           updateTransactionDto.date ?? transaction.date,
         )
       }
+
+      // Update the total amount of the user account
+      await this.userAccountService.updateTotalAmount(userId, amountType, Math.abs(amountDiff));
 
       // verify if the transaction is recurring
       // TODO : make the recurring system
@@ -245,10 +243,27 @@ export class TransactionsService {
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
-    // Delete the transaction
-    return this.db
-      .delete(schema.transactions)
-      .where(eq(schema.transactions.id, id))
-      .then(() => undefined)
+
+    return await this.db.transaction(async (tx) => {
+      // Delete the transaction
+      await tx
+       .delete(schema.transactions)
+       .where(eq(schema.transactions.id, id))
+
+      // Update the actual amount of the category budget
+      await this.budgetService.updateActualAmount(
+        transaction.categoryId,
+        userId,
+        1,
+        transaction.amount,
+        transaction.date,
+      )
+
+      // Update the total amount of the user account
+      await this.userAccountService.updateTotalAmount(userId, 1, transaction.amount);
+
+      // verify if the transaction is recurring
+      // TODO : make the recurring system
+    })
   }
 }

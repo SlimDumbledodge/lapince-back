@@ -7,7 +7,9 @@ import * as schema from 'src/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { CategoriesService } from 'src/categories/categories.service';
 import dayjs from 'dayjs';
-import isBetween from 'dayjs/plugin/isBetween';
+import isBetween from 'dayjs/plugin/isBetween'
+
+dayjs.extend(isBetween);
 
 @Injectable()
 export class BudgetService {
