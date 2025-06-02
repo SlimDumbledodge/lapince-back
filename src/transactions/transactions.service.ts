@@ -46,7 +46,13 @@ export class TransactionsService {
       } as unknown as schema.NewTransaction).returning();
 
       // Update the actual amount of the category budget
-      await this.budgetService.updateActualAmount(createTransactionDto.categoryId, userId, createTransactionDto.transactionType, createTransactionDto.amount);
+      await this.budgetService.updateActualAmount(
+        createTransactionDto.categoryId, 
+        userId, 
+        createTransactionDto.transactionType, 
+        createTransactionDto.amount,
+        createTransactionDto.date,
+      );
 
       // update the total amount of the user account
       await this.userAccountService.updateTotalAmount(userId, createTransactionDto.transactionType, createTransactionDto.amount);
@@ -161,23 +167,65 @@ export class TransactionsService {
       }
     }
 
-    // update the transaction
-    const result = await this.db
-      .update(schema.transactions)
-      .set({
-        ...updateTransactionDto,
-        date: updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
-        reccuringStartDate: updateTransactionDto.RecurringStartDate ? new Date(updateTransactionDto.RecurringStartDate) : transaction.reccuringStartDate,
-        reccuringEndDate: updateTransactionDto.RecurringEndDate ? new Date(updateTransactionDto.RecurringEndDate) : transaction.reccuringEndDate,
-        updatedAt: new Date(),
-      } as unknown as schema.Transaction).returning()
+    return await this.db.transaction(async (tx) => {
+      // update the transaction
+      const result = await tx
+        .update(schema.transactions)
+        .set({
+          ...updateTransactionDto,
+          date: updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
+          reccuringStartDate: updateTransactionDto.RecurringStartDate ? new Date(updateTransactionDto.RecurringStartDate) : transaction.reccuringStartDate,
+          reccuringEndDate: updateTransactionDto.RecurringEndDate ? new Date(updateTransactionDto.RecurringEndDate) : transaction.reccuringEndDate,
+          updatedAt: new Date(),
+        } as unknown as schema.Transaction)
+        .where(eq(schema.transactions.id, id))
+        .returning()
 
-    // Verify and update the budget
+      // Verify and update the budget
+      if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId === transaction.categoryId)) { // If if the same category       
 
-    // verify if the transaction is recurring
-    // TODO : make the recurring system
+        if (
+          typeof updateTransactionDto.amount === 'number' && 
+          updateTransactionDto.amount !== transaction.amount
+        ) {
+          const amountDiff = updateTransactionDto.amount - transaction.amount;
+        
+          // 1 = income, 2 = expense
+          const amountType = amountDiff > 0 ? 1 : 2;
+        
+          await this.budgetService.updateActualAmount(
+            updateTransactionDto.categoryId ?? transaction.categoryId,
+            userId,
+            amountType,
+            Math.abs(amountDiff),
+            updateTransactionDto.date ?? transaction.date,
+          );
+        }
+      } else if (updateTransactionDto.categoryId) { // If change the category
+        // Update the actual amount of the old category budget
+        await this.budgetService.updateActualAmount(
+          transaction.categoryId,
+          userId,
+          transaction.transactionsType,
+          -transaction.amount,
+          transaction.date,
+        );
 
-    return result[0];
+        // Update the actual amount of the new category budget
+        await this.budgetService.updateActualAmount(
+          updateTransactionDto.categoryId,
+          userId,
+          updateTransactionDto.transactionType ?? transaction.transactionsType,
+          updateTransactionDto.amount ?? 0,
+          updateTransactionDto.date ?? transaction.date,
+        )
+      }
+
+      // verify if the transaction is recurring
+      // TODO : make the recurring system
+
+      return result[0];
+    })
   }
 
   /**

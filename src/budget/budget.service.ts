@@ -6,6 +6,8 @@ import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { CategoriesService } from 'src/categories/categories.service';
+import dayjs from 'dayjs';
+import isBetween from 'dayjs/plugin/isBetween';
 
 @Injectable()
 export class BudgetService {
@@ -116,8 +118,10 @@ export class BudgetService {
    * @param userId
    * @param type (1 = income, 2 = expense)
    * @param amount
+   * @param transactionDate
+   * @returns
    */
-  async updateActualAmount(categoryId: string, userId: string, type: number, amount: number): Promise<schema.Budget | null> {
+  async updateActualAmount(categoryId: string, userId: string, type: number, amount: number, transactionDate: string | Date): Promise<schema.Budget | null> {
     const budget = await this.findOneByCategoryId(categoryId, userId);
     if (!budget) {
       return null;
@@ -131,6 +135,15 @@ export class BudgetService {
       }
     } else if (type === 2) {
       actualAmount += amount;
+    }
+
+    // Verify if the transaction is in this budget period
+    const startDate = dayjs(budget.lastResetDate);
+    const endDate = dayjs(budget.lastResetDate).add(budget.reccuringFrequency ?? 30, 'days');
+    const transactionDay = dayjs(transactionDate);
+
+    if (!transactionDay.isBetween(startDate, endDate, 'day', '[)')) {
+      return null;
     }
 
     const result = await this.db
