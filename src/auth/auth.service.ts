@@ -176,7 +176,7 @@ export class AuthService {
     const result = await this.db
       .update(schema.sessions)
       .set({ isRevoked: true })
-      .where(eq(schema.sessions.id, sessionId));
+      .where(and(eq(schema.sessions.id, sessionId), eq(schema.sessions.isRevoked, false)));
 
     if (result.rowCount === 0) {
       throw new UnauthorizedException('Invalid session');
