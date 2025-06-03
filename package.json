@@ -30,6 +30,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^6.0.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.53.1",
     "dayjs": "^1.11.13",

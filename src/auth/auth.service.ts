@@ -1,4 +1,4 @@
-import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Inject, UnauthorizedException, Logger } from '@nestjs/common';
 import {UsersService} from "../users/users.service";
 import { UserAccountService } from 'src/user-account/user-account.service';
 import * as bcrypt from 'bcrypt';
@@ -10,8 +10,9 @@ import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import ms from 'ms';
 import {jwtConstants} from "./constants";
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or, lt } from 'drizzle-orm';
 import {v4 as uuidv4} from 'uuid';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,8 @@ export class AuthService {
     @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
   ) {}
+
+  private readonly logger = new Logger(AuthService.name);
 
   async signUp(registerDto: RegisterDto) {
     const user = await this.usersService.create({
@@ -184,5 +187,29 @@ export class AuthService {
     };
   }
 
-  // TODO : add cron jobs to delete expired sessions
+  /**
+   * Remove all revoked sessions
+   * @returns 
+   */
+  async removeRevokedSessions() {
+    await this.db
+     .delete(schema.sessions)
+     .where(or(eq(schema.sessions.isRevoked, true), lt(schema.sessions.expiresAt, new Date())));
+
+    return {
+      message: 'Revoked sessions removed'
+    };
+  }
+  
+  /**
+   * Cron job to remove revoked sessions
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleCron() {
+    await this.removeRevokedSessions();
+
+    // TODO : send a message to admin after good cron jobs excution
+
+    this.logger.debug('Cron job executed');
+  }
 }

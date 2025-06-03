@@ -11,6 +11,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { BullModule } from '@nestjs/bullmq';
 import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module
         },
       }),
     }),
+    ScheduleModule.forRoot(),
     DrizzleModule,
     UsersModule,
     AuthModule,
