@@ -5,15 +5,17 @@ import {UsersModule} from "../users/users.module";
 import {JwtModule} from "@nestjs/jwt";
 import {jwtConstants} from "./constants";
 import { UserAccountModule } from 'src/user-account/user-account.module';
+import { DrizzleModule } from 'src/db/drizzle/drizzle.module';
 
 @Module({
   imports: [
     UsersModule,
     UserAccountModule,
+    DrizzleModule,
     JwtModule.register({
       global: true,
       secret: jwtConstants.secret,
-      signOptions: { expiresIn: '60s' }
+      signOptions: { expiresIn: '15m' }
     })
   ],
   controllers: [AuthController],

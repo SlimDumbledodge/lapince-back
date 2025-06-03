@@ -20,6 +20,27 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
 /**
+ * Session table
+ */
+export const sessions = pgTable('sessions', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  tokenHash: varchar('token_hash', { length: 255 }).notNull(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  isRevoked: boolean('is_revoked').notNull().default(false),
+  ipAddress: varchar('ip_address', { length: 255 }),
+  userAgent: varchar('user_agent', { length: 255 }),
+  createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+  updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
+}, (t) => ({
+  tokenHashIdx: uniqueIndex('token_hash_idx').on(t.tokenHash),
+  userIdIdx: index('session_user_id_idx').on(t.userId),
+}))
+
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+
+/**
  * User account table
  */
 export const userAccounts = pgTable('user_accounts', {
