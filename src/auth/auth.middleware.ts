@@ -32,6 +32,13 @@ export class AuthMiddleware implements NestMiddleware {
         }
       );
 
+      if (!payload.type || payload.type !== "access") {
+        // Go to the catch block
+        throw new UnauthorizedException(
+          'Unauthorized access - Invalid token or missing token'
+        );
+      }
+
       // Fetch the user from the database and attach it to the request object
       req['user'] = await this.usersService.findOne(payload.sub);
 

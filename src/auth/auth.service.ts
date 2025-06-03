@@ -9,6 +9,9 @@ import * as schema from '../db/schema';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import ms from 'ms';
+import {jwtConstants} from "./constants";
+import { and, eq } from 'drizzle-orm';
+import {v4 as uuidv4} from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -63,7 +66,7 @@ export class AuthService {
   }
 
   private async createToken(user: schema.User & {accountName: string, amount: number}) {
-    const payload = { email: user.email, sub: user.id };
+    const payload = { email: user.email, sub: user.id, type: 'access' };
 
     const refresh_token = await this.createRefreshToken(user);
 
@@ -76,6 +79,7 @@ export class AuthService {
         accountName: user.accountName,
         amount: user.amount,
       },
+      session_id: refresh_token.sessionId,
       access_token: await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_EXPIRES_IN ?? '15m'}),
       access_token_expires_at: new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN ?? '15m')),
       refresh_token: refresh_token.refresh_token,
@@ -84,14 +88,20 @@ export class AuthService {
   }
 
   private async createRefreshToken(user: schema.User) {
-    const payload = { sub: user.id };
+    const sessionId = uuidv4();
 
-    const refresh_token = await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_REFRESH_EXPIRES_IN?? '7d'});
+    const payload = { sub: user.id, type: 'refresh', sid: sessionId };
+
+    const refresh_token = await this.jwtService.signAsync(
+      payload, 
+      {expiresIn: process.env.JWT_REFRESH_EXPIRES_IN?? '7d'}
+    );
     const expiresAt = new Date(Date.now() + ms(process.env.JWT_REFRESH_EXPIRES_IN?? '7d'));
 
     // TODO : get IP address and User Agent in the request
 
     await this.db.insert(schema.sessions).values({
+      id: sessionId,
       userId: user.id,
       tokenHash: await bcrypt.hash(refresh_token, 10),
       expiresAt
@@ -99,7 +109,65 @@ export class AuthService {
 
     return {
       refresh_token,
-      expiresAt
+      expiresAt,
+      sessionId: sessionId
     };
   }
+
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(
+        refreshToken,
+        {
+          secret: jwtConstants.secret
+        }
+      );
+  
+      if (payload.type !== 'refresh' || !payload.sub || !payload.sid) {
+        throw new UnauthorizedException('Invalid token type');
+      }
+  
+      // verify the user
+      const user = await this.usersService.findOne(payload.sub);
+  
+      if (!user) {
+        throw new UnauthorizedException('Invalid user');
+      }
+  
+      // get all unrevoked sessions for the user
+      const tokens = await this.db
+        .select()
+        .from(schema.sessions)
+        .where(and(eq(schema.sessions.userId, payload.sub), eq(schema.sessions.isRevoked, false), eq(schema.sessions.id, payload.sid)));
+  
+      const valid = await Promise.all(
+        tokens.map(async token => ({
+          match: await bcrypt.compare(refreshToken, token.tokenHash),
+          token,
+        }))
+      );
+  
+      const found = valid.find(t => t.match);
+  
+      if (!found) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+  
+      const newAccessToken = this.jwtService.sign(
+        { sub: payload.sub, type: 'access' },
+        { expiresIn: process.env.JWT_EXPIRES_IN ?? '15m' }
+      );
+  
+      const expiresAt = new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN?? '15m'));
+  
+      return {
+        access_token: newAccessToken,
+        access_token_expires_at: expiresAt,
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  } 
+
+  // TODO : add cron jobs to delete expired sessions
 }
