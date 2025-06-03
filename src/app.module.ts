@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { DrizzleModule } from './db/drizzle/drizzle.module';
 import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
@@ -41,8 +41,13 @@ export class AppModule implements NestModule {
     consumer
       .apply(AuthMiddleware)
       .exclude(
-        'auth/(.*)'
+        { path: 'auth/signup', method: RequestMethod.POST },
+        { path: 'auth/signin', method: RequestMethod.POST },
+        { path: 'auth/token/refresh', method: RequestMethod.POST },
       )
-      .forRoutes('*');
+      .forRoutes({
+        path: '*splat',
+        method: RequestMethod.ALL,
+      });
   }
 }

@@ -169,5 +169,20 @@ export class AuthService {
     }
   } 
 
+  async logout(sessionId: string) {
+    const result = await this.db
+      .update(schema.sessions)
+      .set({ isRevoked: true })
+      .where(eq(schema.sessions.id, sessionId));
+
+    if (result.rowCount === 0) {
+      throw new UnauthorizedException('Invalid session');
+    }
+
+    return {
+      message: 'Logged out'
+    };
+  }
+
   // TODO : add cron jobs to delete expired sessions
 }

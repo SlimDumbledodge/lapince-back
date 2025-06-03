@@ -2,6 +2,7 @@ import { Controller, Post, Body, UsePipes, HttpCode, HttpStatus } from '@nestjs/
 import { AuthService } from './auth.service';
 import { LoginDto, LoginDtoSchema } from './dto/login.dto';
 import { RefreshDtoSchema, RefreshDto } from './dto/refresh.dto';
+import { LogoutDtoSchema, LogoutDto } from './dto/logout.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { RegisterDtoSchema, RegisterDto } from './dto/register.dto';
 
@@ -39,5 +40,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   refreshToken(@Body() body: RefreshDto) {
     return this.authService.refreshAccessToken(body.refreshToken);
+  }
+
+  /**
+   * Logout a user
+   * @param sessionId
+   */
+  @Post('logout')
+  @UsePipes(new ZodValidationPipe(LogoutDtoSchema))
+  @HttpCode(HttpStatus.OK)
+  logout(@Body() body: LogoutDto) {
+    return this.authService.logout(body.sessionId);
   }
 }
