@@ -16,7 +16,7 @@ export class NotificationsController {
    * @param limit
    * @returns 
    */
-  @Get('user')
+  @Get()
   findAll(
     @Req() req: Request,
     @Query('isRead') isRead: boolean = false,
