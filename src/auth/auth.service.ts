@@ -79,11 +79,11 @@ export class AuthService {
         accountName: user.accountName,
         amount: user.amount,
       },
-      session_id: refresh_token.sessionId,
-      access_token: await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_EXPIRES_IN ?? '15m'}),
-      access_token_expires_at: new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN ?? '15m')),
-      refresh_token: refresh_token.refresh_token,
-      refresh_token_expires_at: refresh_token.expiresAt,
+      sessionId: refresh_token.sessionId,
+      accessToken: await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_EXPIRES_IN ?? '15m'}),
+      accessTokenExpiresAt: new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN ?? '15m')),
+      refreshToken: refresh_token.refreshToken,
+      refreshTokenExpiresAt: refresh_token.expiresAt,
     };
   }
 
@@ -92,7 +92,7 @@ export class AuthService {
 
     const payload = { sub: user.id, type: 'refresh', sid: sessionId };
 
-    const refresh_token = await this.jwtService.signAsync(
+    const refreshToken = await this.jwtService.signAsync(
       payload, 
       {expiresIn: process.env.JWT_REFRESH_EXPIRES_IN?? '7d'}
     );
@@ -103,12 +103,12 @@ export class AuthService {
     await this.db.insert(schema.sessions).values({
       id: sessionId,
       userId: user.id,
-      tokenHash: await bcrypt.hash(refresh_token, 10),
+      tokenHash: await bcrypt.hash(refreshToken, 10),
       expiresAt
     })
 
     return {
-      refresh_token,
+      refreshToken,
       expiresAt,
       sessionId: sessionId
     };
@@ -161,8 +161,8 @@ export class AuthService {
       const expiresAt = new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN?? '15m'));
   
       return {
-        access_token: newAccessToken,
-        access_token_expires_at: expiresAt,
+        accessToken: newAccessToken,
+        accessTokenExpiresAt: expiresAt,
       };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
