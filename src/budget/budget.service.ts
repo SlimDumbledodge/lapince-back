@@ -8,6 +8,8 @@ import { eq, and } from 'drizzle-orm';
 import { CategoriesService } from 'src/categories/categories.service';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween'
+import { BudgetResetService } from 'src/lib/bullmq/budget-reset/budget-reset.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 dayjs.extend(isBetween);
 
@@ -16,6 +18,8 @@ export class BudgetService {
   constructor(
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
     @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
+    @Inject(BudgetResetService) private readonly budgetResetService: BudgetResetService,
+    @Inject(NotificationsService) private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -34,8 +38,14 @@ export class BudgetService {
     const budget = await this.db.insert(schema.budgets).values({
       ...createBudgetDto,
       userId,
+      lastResetDate: createBudgetDto.reccuringStartDate ?? new Date().toISOString(),
       createdAt: new Date(),
     }).returning();
+
+    // create a schedule for reset the budget
+    if (createBudgetDto.reccuringFrequency) {
+      await this.budgetResetService.scheduleBudgetReset(budget[0]);
+    }
 
     return budget[0];
   }
@@ -125,44 +135,91 @@ export class BudgetService {
    */
   async updateActualAmount(categoryId: string, userId: string, type: number, amount: number, transactionDate: string | Date): Promise<schema.Budget | null> {
     const budget = await this.findOneByCategoryId(categoryId, userId);
-    if (!budget) {
-      return null;
-    }
-
-    let actualAmount = budget.actualAmount;
-    if (type === 1) {
-      actualAmount -= amount;
-      if (actualAmount < 0) {
-        actualAmount = 0;
+      if (!budget) {
+        return null;
       }
-    } else if (type === 2) {
-      actualAmount += amount;
+
+      let actualAmount = budget.actualAmount;
+      if (type === 1) {
+        actualAmount -= amount;
+        if (actualAmount < 0) {
+          actualAmount = 0;
+        }
+      } else if (type === 2) {
+        actualAmount += amount;
+      }
+
+      // Verify if the transaction is in this budget period
+      const startDate = dayjs(budget.lastResetDate);
+      const endDate = dayjs(budget.lastResetDate).add(budget.reccuringFrequency ?? 30, 'days');
+      const transactionDay = dayjs(transactionDate);
+
+      if (!transactionDay.isBetween(startDate, endDate, 'day', '[)')) {
+        return null;
+      }
+
+      const result = await this.db
+      .update(schema.budgets)
+      .set({
+        actualAmount,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.budgets.id, budget.id))
+      .returning();
+
+      if (result.length === 0) {
+        return null;
+      } else {
+
+      // verify if the budget is reached or at 75% and send a notification if it is reached
+      if (actualAmount >= budget.totalAmount * 0.75) {
+        const category = await this.categoriesService.findOne(budget.categoryId, userId);
+
+        await this.notificationsService.create({
+          type: "budget",
+          message: `Your budget for ${category.name} is at 75% !!!`,
+        }, userId);
+      } else if (actualAmount >= budget.totalAmount) {
+        const category = await this.categoriesService.findOne(budget.categoryId, userId);
+
+        await this.notificationsService.create({
+          type: "budget",
+          message: `Your budget for ${category.name} is reached !!!`,
+        }, userId);
+      }
+
+      return result[0];
     }
+  }
 
-    // Verify if the transaction is in this budget period
-    const startDate = dayjs(budget.lastResetDate);
-    const endDate = dayjs(budget.lastResetDate).add(budget.reccuringFrequency ?? 30, 'days');
-    const transactionDay = dayjs(transactionDate);
+  /**
+   * Reset an actual amount of a budget by id
+   * @param id (budget Id)
+   * @returns
+   */
+  async resetActualAmount(id: string): Promise<schema.Budget | null> {
+    const budget = await this.db
+     .select()
+     .from(schema.budgets)
+     .where(eq(schema.budgets.id, id));
 
-    if (!transactionDay.isBetween(startDate, endDate, 'day', '[)')) {
+    if (budget.length === 0) {
       return null;
     }
 
     const result = await this.db
     .update(schema.budgets)
     .set({
-      actualAmount,
+      actualAmount: 0,
+      lastResetDate: new Date().toISOString(),
       updatedAt: new Date(),
      })
-    .where(eq(schema.budgets.id, budget.id))
+    .where(eq(schema.budgets.id, id))
     .returning();
 
     if (result.length === 0) {
       return null;
     } else {
-
-      // TODO : verify if the budget is reached or not and send a notification if it is reached
-
       return result[0];
     }
   }

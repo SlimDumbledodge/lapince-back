@@ -7,5 +7,6 @@ import { DrizzleModule } from 'src/db/drizzle/drizzle.module';
   imports: [DrizzleModule],
   controllers: [NotificationsController],
   providers: [NotificationsService],
+  exports: [NotificationsService],
 })
 export class NotificationsModule {}

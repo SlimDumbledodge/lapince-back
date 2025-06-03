@@ -9,11 +9,21 @@ import { BudgetModule } from './budget/budget.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { CategoriesModule } from './categories/categories.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { BullModule } from '@nestjs/bullmq';
+import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    BullModule.forRootAsync({
+      useFactory: async () => ({
+        connection: {
+          host: process.env.CACHE_HOST,
+          port: parseInt(process.env.CACHE_PORT?? "6379", 10) || 6379,
+        },
+      }),
     }),
     DrizzleModule,
     UsersModule,
@@ -22,7 +32,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     BudgetModule,
     TransactionsModule,
     CategoriesModule,
-    NotificationsModule
+    NotificationsModule,
+    BudgetResetModule,
   ],
 })
 export class AppModule implements NestModule {
