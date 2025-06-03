@@ -39,8 +39,8 @@ export class TransactionsService {
       const result = await tx.insert(schema.transactions).values({
         ...createTransactionDto,
         date: new Date(createTransactionDto.date),
-        reccuringStartDate: createTransactionDto.RecurringStartDate ? new Date(createTransactionDto.RecurringStartDate) : null,
-        reccuringEndDate: createTransactionDto.RecurringEndDate ? new Date(createTransactionDto.RecurringEndDate) : null,
+        reccuringStartDate: createTransactionDto.reccuringStartDate ? new Date(createTransactionDto.reccuringStartDate) : null,
+        reccuringEndDate: createTransactionDto.reccuringEndDate ? new Date(createTransactionDto.reccuringEndDate) : null,
         userAccountId: userAccount.id,
         createdAt: new Date(),
       } as unknown as schema.NewTransaction).returning();
@@ -174,8 +174,8 @@ export class TransactionsService {
         .set({
           ...updateTransactionDto,
           date: updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
-          reccuringStartDate: updateTransactionDto.RecurringStartDate ? new Date(updateTransactionDto.RecurringStartDate) : transaction.reccuringStartDate,
-          reccuringEndDate: updateTransactionDto.RecurringEndDate ? new Date(updateTransactionDto.RecurringEndDate) : transaction.reccuringEndDate,
+          reccuringStartDate: updateTransactionDto.reccuringStartDate ? new Date(updateTransactionDto.reccuringStartDate) : transaction.reccuringStartDate,
+          reccuringEndDate: updateTransactionDto.reccuringEndDate ? new Date(updateTransactionDto.reccuringEndDate) : transaction.reccuringEndDate,
           updatedAt: new Date(),
         } as unknown as schema.Transaction)
         .where(eq(schema.transactions.id, id))
