@@ -33,7 +33,7 @@ export class BudgetController {
    * Get all budget by user id
    * @returns 
    */
-  @Get('user')
+  @Get()
   findAll(@Req() req: Request) {
     const user = req['user']
 

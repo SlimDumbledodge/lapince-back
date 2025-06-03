@@ -33,7 +33,7 @@ export class CategoriesController {
    * Get all categories
    * @returns 
    */
-  @Get('user')
+  @Get()
   findAll(@Req() req: Request,) {
     const user = req['user']
 

@@ -33,7 +33,7 @@ export class TransactionsController {
    * Get all transactions for a user
    * @returns 
    */
-  @Get('user')
+  @Get()
   findAll(
     @Req() req: Request,
     @Query('limit') limit: number = 10,
