@@ -266,6 +266,10 @@ export class AuthService {
         await this.db.update(schema.users)
           .set({ password: hashedPassword })
           .where(eq(schema.users.id, user.id));
+
+        // TODO : Revoke all sessions for the user after password reset
+        // TODO : Revoke the forgot password token
+
       } catch (error) {
         throw new UnauthorizedException('Failed to reset password');
       }
