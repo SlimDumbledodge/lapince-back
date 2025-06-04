@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import 'dotenv/config'
 import {RegisterDto} from "./dto/register.dto";
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import * as schema from '../db/schema';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -211,5 +212,33 @@ export class AuthService {
     // TODO : send a message to admin after good cron jobs excution
 
     this.logger.debug('Cron job executed');
+  }
+
+  /**
+   * Function to handle forgot password
+   * This endpoint allows a user to request a password reset.
+   * @param forgotPasswordDto 
+   * @returns 
+   */
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{message: string}> {
+    const user = await this.usersService.findByEmail(forgotPasswordDto.email);
+
+    if (!user) {
+      return {
+        message: 'If the email exists, a password reset link has been sent.',
+      }; // Do not reveal if the email exists or not for security reasons
+    }
+
+    const payload = {sub: user.id, type: 'forgot-password'}
+    const token = await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_FORGOT_PASSWORD_EXPIRES_IN ?? '15m'})
+
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    // TODO : send an email with a password reset link
+
+
+    return {
+      message: 'If the email exists, a password reset link has been sent.',
+    };
   }
 }
