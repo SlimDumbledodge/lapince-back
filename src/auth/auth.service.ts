@@ -1,18 +1,19 @@
-import { Injectable, Inject, UnauthorizedException, Logger } from '@nestjs/common';
-import {UsersService} from "../users/users.service";
+import { Injectable, Inject, UnauthorizedException, Logger, BadRequestException } from '@nestjs/common';
+import { UsersService } from "../users/users.service";
 import { UserAccountService } from 'src/user-account/user-account.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import 'dotenv/config'
-import {RegisterDto} from "./dto/register.dto";
+import { RegisterDto } from "./dto/register.dto";
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import * as schema from '../db/schema';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import ms from 'ms';
-import {jwtConstants} from "./constants";
+import { jwtConstants } from "./constants";
 import { and, eq, or, lt } from 'drizzle-orm';
-import {v4 as uuidv4} from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -22,7 +23,7 @@ export class AuthService {
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+  ) { }
 
   private readonly logger = new Logger(AuthService.name);
 
@@ -69,7 +70,7 @@ export class AuthService {
     return this.createToken(user);
   }
 
-  private async createToken(user: schema.User & {accountName: string, amount: number}) {
+  private async createToken(user: schema.User & { accountName: string, amount: number }) {
     const payload = { email: user.email, sub: user.id, type: 'access' };
 
     const refresh_token = await this.createRefreshToken(user);
@@ -84,7 +85,7 @@ export class AuthService {
         amount: user.amount,
       },
       sessionId: refresh_token.sessionId,
-      accessToken: await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_EXPIRES_IN ?? '15m'}),
+      accessToken: await this.jwtService.signAsync(payload, { expiresIn: process.env.JWT_EXPIRES_IN ?? '15m' }),
       accessTokenExpiresAt: new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN ?? '15m')),
       refreshToken: refresh_token.refreshToken,
       refreshTokenExpiresAt: refresh_token.expiresAt,
@@ -97,10 +98,10 @@ export class AuthService {
     const payload = { sub: user.id, type: 'refresh', sid: sessionId };
 
     const refreshToken = await this.jwtService.signAsync(
-      payload, 
-      {expiresIn: process.env.JWT_REFRESH_EXPIRES_IN?? '7d'}
+      payload,
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d' }
     );
-    const expiresAt = new Date(Date.now() + ms(process.env.JWT_REFRESH_EXPIRES_IN?? '7d'));
+    const expiresAt = new Date(Date.now() + ms(process.env.JWT_REFRESH_EXPIRES_IN ?? '7d'));
 
     // TODO : get IP address and User Agent in the request
 
@@ -126,44 +127,44 @@ export class AuthService {
           secret: jwtConstants.secret
         }
       );
-  
+
       if (payload.type !== 'refresh' || !payload.sub || !payload.sid) {
         throw new UnauthorizedException('Invalid token type');
       }
-  
+
       // verify the user
       const user = await this.usersService.findOne(payload.sub);
-  
+
       if (!user) {
         throw new UnauthorizedException('Invalid user');
       }
-  
+
       // get all unrevoked sessions for the user
       const tokens = await this.db
         .select()
         .from(schema.sessions)
         .where(and(eq(schema.sessions.userId, payload.sub), eq(schema.sessions.isRevoked, false), eq(schema.sessions.id, payload.sid)));
-  
+
       const valid = await Promise.all(
         tokens.map(async token => ({
           match: await bcrypt.compare(refreshToken, token.tokenHash),
           token,
         }))
       );
-  
+
       const found = valid.find(t => t.match);
-  
+
       if (!found) {
         throw new UnauthorizedException('Invalid refresh token');
       }
-  
+
       const newAccessToken = this.jwtService.sign(
         { sub: payload.sub, type: 'access' },
         { expiresIn: process.env.JWT_EXPIRES_IN ?? '15m' }
       );
-  
-      const expiresAt = new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN?? '15m'));
-  
+
+      const expiresAt = new Date(Date.now() + ms(process.env.JWT_EXPIRES_IN ?? '15m'));
+
       return {
         accessToken: newAccessToken,
         accessTokenExpiresAt: expiresAt,
@@ -171,7 +172,7 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
-  } 
+  }
 
   async logout(sessionId: string) {
     const result = await this.db
@@ -194,14 +195,14 @@ export class AuthService {
    */
   async removeRevokedSessions() {
     await this.db
-     .delete(schema.sessions)
-     .where(or(eq(schema.sessions.isRevoked, true), lt(schema.sessions.expiresAt, new Date())));
+      .delete(schema.sessions)
+      .where(or(eq(schema.sessions.isRevoked, true), lt(schema.sessions.expiresAt, new Date())));
 
     return {
       message: 'Revoked sessions removed'
     };
   }
-  
+
   /**
    * Cron job to remove revoked sessions
    */
@@ -220,7 +221,7 @@ export class AuthService {
    * @param forgotPasswordDto 
    * @returns 
    */
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{message: string}> {
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
     const user = await this.usersService.findByEmail(forgotPasswordDto.email);
 
     if (!user) {
@@ -229,8 +230,8 @@ export class AuthService {
       }; // Do not reveal if the email exists or not for security reasons
     }
 
-    const payload = {sub: user.id, type: 'forgot-password'}
-    const token = await this.jwtService.signAsync(payload, {expiresIn: process.env.JWT_FORGOT_PASSWORD_EXPIRES_IN ?? '15m'})
+    const payload = { sub: user.id, type: 'forgot-password' }
+    const token = await this.jwtService.signAsync(payload, { expiresIn: process.env.JWT_FORGOT_PASSWORD_EXPIRES_IN ?? '15m' })
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
@@ -240,5 +241,41 @@ export class AuthService {
     return {
       message: 'If the email exists, a password reset link has been sent.',
     };
+  }
+
+  /**
+   * Function to handle reset password
+   * @param resetPasswordDto 
+   * @returns 
+   */
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+    try {
+      const payload = await this.jwtService.verifyAsync(resetPasswordDto.token, {
+        secret: jwtConstants.secret,
+      });
+
+      if (payload.type !== 'forgot-password' || !payload.sub) {
+        throw new UnauthorizedException('Invalid token');
+      }
+
+      const user = await this.usersService.findOne(payload.sub);
+
+      const hashedPassword = await bcrypt.hash(resetPasswordDto.newPassword, 10);
+
+      try {
+        await this.db.update(schema.users)
+          .set({ password: hashedPassword })
+          .where(eq(schema.users.id, user.id));
+      } catch (error) {
+        throw new UnauthorizedException('Failed to reset password');
+      }
+
+      return {
+        message: 'Password has been reset successfully',
+      };
+    }
+    catch (error) {
+      throw new BadRequestException('Invalid or expired token !');
+    }
   }
 }

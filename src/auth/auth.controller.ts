@@ -6,6 +6,7 @@ import { LogoutDtoSchema, LogoutDto } from './dto/logout.dto';
 import { ForgotPasswordDto, forgotPasswordSchema } from '../auth/dto/forgot-password.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { RegisterDtoSchema, RegisterDto } from './dto/register.dto';
+import { ResetPasswordSchema, ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -65,5 +66,17 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(forgotPasswordSchema))
   forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  /**
+   * Reset password
+   * This endpoint allows a user to reset their password using a token.
+   * @param resetPasswordDto 
+   * @returns 
+   */
+  @Post('reset-password')
+  @UsePipes(new ZodValidationPipe(ResetPasswordSchema))
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }
