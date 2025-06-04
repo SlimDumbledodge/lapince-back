@@ -23,10 +23,13 @@ export class MailService {
         context: params.context,
       };
 
-      const result = await this.mailerService.sendMail(sendMailParams);
+      const response = await this.mailerService.sendMail(sendMailParams);
 
       this.logger.log(
-        `Email sent successfully to ${Array.isArray(params.to) ? params.to.join(', ') : params.to}`,
+        `Email sent successfully to recipients with the following parameters : ${JSON.stringify(
+          sendMailParams,
+        )}`,
+        response,
       );
 
     } catch (error) {
