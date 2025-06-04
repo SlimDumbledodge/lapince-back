@@ -15,6 +15,7 @@ import { jwtConstants } from "./constants";
 import { and, eq, or, lt } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
+    @Inject(MailService) private readonly mailService: MailService
   ) { }
 
   private readonly logger = new Logger(AuthService.name);
@@ -235,8 +237,16 @@ export class AuthService {
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
-    // TODO : send an email with a password reset link
-
+    await this.mailService.sendEmail({
+      to: user.email,
+      subject: 'Password Reset Request',
+      template: 'reset-password',
+      context: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        resetLink,
+      },
+    });
 
     return {
       message: 'If the email exists, a password reset link has been sent.',
