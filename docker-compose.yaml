@@ -55,6 +55,18 @@ services:
     depends_on:
       - la-pince-backend
 
+  mail:
+    image: mailhog/mailhog
+    restart: always
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI port
+    environment:
+      - MH_STORAGE=maildir
+    volumes:
+      - mailhog-data:/data
+
 volumes:
   pgdata:
   valkey-data:
+  mailhog-data:

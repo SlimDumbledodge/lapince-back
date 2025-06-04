@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { BullModule } from '@nestjs/bullmq';
 import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CategoriesModule,
     NotificationsModule,
     BudgetResetModule,
+    MailModule,
   ],
 })
 export class AppModule implements NestModule {
@@ -48,6 +50,8 @@ export class AppModule implements NestModule {
         { path: 'auth/signup', method: RequestMethod.POST },
         { path: 'auth/signin', method: RequestMethod.POST },
         { path: 'auth/token/refresh', method: RequestMethod.POST },
+        { path: 'auth/forgot-password', method: RequestMethod.POST },
+        { path: 'auth/reset-password', method: RequestMethod.POST },
       )
       .forRoutes({
         path: '*splat',

@@ -3,8 +3,10 @@ import { AuthService } from './auth.service';
 import { LoginDto, LoginDtoSchema } from './dto/login.dto';
 import { RefreshDtoSchema, RefreshDto } from './dto/refresh.dto';
 import { LogoutDtoSchema, LogoutDto } from './dto/logout.dto';
+import { ForgotPasswordDto, forgotPasswordSchema } from '../auth/dto/forgot-password.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { RegisterDtoSchema, RegisterDto } from './dto/register.dto';
+import { ResetPasswordSchema, ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -51,5 +53,30 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   logout(@Body() body: LogoutDto) {
     return this.authService.logout(body.sessionId);
+  }
+
+  /**
+   * Forgot password
+   * This endpoint allows a user to request a password reset.
+   * @param forgotPasswordDto 
+   * @returns 
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK) // Ensure the response is 200 OK, even if the email does not exist
+  @UsePipes(new ZodValidationPipe(forgotPasswordSchema))
+  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  /**
+   * Reset password
+   * This endpoint allows a user to reset their password using a token.
+   * @param resetPasswordDto 
+   * @returns 
+   */
+  @Post('reset-password')
+  @UsePipes(new ZodValidationPipe(ResetPasswordSchema))
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }

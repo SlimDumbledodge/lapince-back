@@ -4,7 +4,7 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
 import { BudgetService } from 'src/budget/budget.service';
@@ -91,7 +91,7 @@ export class TransactionsService {
       .where(eq(schema.transactions.userAccountId, userAccount.id))
       .limit(limit)
       .offset(page * limit)
-      .orderBy(schema.transactions.createdAt)
+      .orderBy(desc(schema.transactions.date));
 
     const data = result.map(row => ({
       ...row.transaction,
