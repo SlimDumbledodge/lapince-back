@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { BullModule } from '@nestjs/bullmq';
 import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CategoriesModule,
     NotificationsModule,
     BudgetResetModule,
+    MailModule,
   ],
 })
 export class AppModule implements NestModule {
