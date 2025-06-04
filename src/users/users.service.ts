@@ -1,6 +1,7 @@
 import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from '../db/schema';
@@ -136,8 +137,40 @@ export class UsersService {
     return result[0]
   }
 
-  async updatePassword() {
-    return 'This function update the user password'
+  /**
+   * Update the user password
+   * @param id
+   * @param updatePasswordDto
+   * @returns 
+   */
+  async updatePassword(id: string, updatePasswordDto: UpdatePasswordDto): Promise<{message: string}> {
+    const user = await this.findOne(id)
+
+    // Verify if the current password is correct
+    const isPasswordValid = await bcrypt.compare(updatePasswordDto.currentPassword, user.password)
+
+    if (!isPasswordValid) {
+      throw new BadRequestException('Current password is incorrect')
+    }
+
+    // Hash the new password
+    const hashedNewPassword = await bcrypt.hash(updatePasswordDto.newPassword, 10)
+
+    // Update the user password
+    const result = await this.db.update(schema.users).set({
+      password: hashedNewPassword,
+      updatedAt: new Date()
+    })
+    .where(eq(schema.users.id, id))
+    .returning()
+
+    if (result.length === 0) {
+      throw new BadRequestException('User not found')
+    }
+
+    return {
+      message: 'Password updated successfully',
+    }
   }
 
   // remove(id: string) {
