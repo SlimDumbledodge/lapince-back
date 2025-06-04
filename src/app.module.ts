@@ -23,6 +23,8 @@ import { ScheduleModule } from '@nestjs/schedule';
         connection: {
           host: process.env.CACHE_HOST,
           port: parseInt(process.env.CACHE_PORT?? "6379", 10) || 6379,
+          password: process.env.CACHE_PASSWORD,
+          db: parseInt(process.env.CACHE_DB?? "0", 10) || 0,
         },
       }),
     }),
