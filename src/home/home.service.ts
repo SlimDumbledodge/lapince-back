@@ -21,7 +21,6 @@ export class HomeService {
    * @param endDate - The end date in ISO format (optional)
    */
   async findAll(userId: string, startDate?: string, endDate?: string) {
-    console.log('findAll called with:', { userId, startDate, endDate });
     // Get the user account to ensure it exists
     const userAccount = await this.userAccountService.findOneByUserId(userId);
 
@@ -113,7 +112,7 @@ export class HomeService {
         id: schema.transactions.id,
         amount: schema.transactions.amount,
         date: schema.transactions.date,
-        transactionsType: schema.transactions.transactionsType,
+        transactionType: schema.transactions.transactionType,
       })
       .from(schema.transactions)
       .where(and(
@@ -134,11 +133,11 @@ export class HomeService {
       const monthData = totalByMonth.find(m => m.month === month);
       if (!monthData) continue;
 
-      if (trx.transactionsType === 1) {
+      if (trx.transactionType === 1) {
         monthData.income = Number(
           new Decimal(monthData.income).plus(trx.amount).toFixed(2)
         );
-      } else if (trx.transactionsType === 2) {
+      } else if (trx.transactionType === 2) {
         monthData.expense = Number(
           new Decimal(monthData.expense).plus(trx.amount).toFixed(2)
         );
@@ -178,7 +177,7 @@ export class HomeService {
         id: schema.transactions.id,
         amount: schema.transactions.amount,
         date: schema.transactions.date,
-        transactionsType: schema.transactions.transactionsType,
+        transactionType: schema.transactions.transactionType,
         categoryId: schema.transactions.categoryId,
       })
       .from(schema.transactions)
@@ -193,7 +192,7 @@ export class HomeService {
 
     for (const trx of result) {      
       // If the transaction type is expense, we only want to sum expense
-      if (trx.transactionsType === 2) {
+      if (trx.transactionType === 2) {
         const existingExpenses = totalByCategory.find(c => c.categoryId === trx.categoryId && c.total > 0);
         if (existingExpenses) {
           existingExpenses.total = Number(

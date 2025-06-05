@@ -12,7 +12,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 const transactionReturnTest : schema.NewTransaction = {
   userAccountId: 'test-user-account-id',
   amount: 100,
-  transactionsType: 2,
+  transactionType: 2,
   date: new Date(),
   description: 'Test transaction',
   categoryId: 'test-category-id',
