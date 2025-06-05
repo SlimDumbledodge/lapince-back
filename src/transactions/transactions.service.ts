@@ -4,7 +4,7 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, count } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
 import { BudgetService } from 'src/budget/budget.service';
@@ -73,7 +73,7 @@ export class TransactionsService {
    * @param page
    * @returns 
    */
-  async findAll(userId: string, limit: number = 10, page: number = 0): Promise<{ data: schema.Transaction[], limit: number, page: number }> {
+  async findAll(userId: string, limit: number = 10, page: number = 0): Promise<{ data: schema.Transaction[], limit: number, page: number, total: number, lastPage: number }> {
     // Get the user account
     const userAccount = await this.userAccountService.findOneByUserId(userId);
 
@@ -98,10 +98,19 @@ export class TransactionsService {
       category: row.category ?? null
     }));
 
+    // Get the total count of transactions for the user
+    // TODO : Make this more efficient by caching the count
+    const totalCount = await this.db
+      .select({ count: count() })
+      .from(schema.transactions)
+      .where(eq(schema.transactions.userAccountId, userAccount.id));
+
     return {
       data,
       limit: limit,
       page: page,
+      total: totalCount[0].count,
+      lastPage: Math.ceil(totalCount[0].count / limit) - 1
     }
   }
 

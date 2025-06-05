@@ -45,7 +45,7 @@ export class TransactionsController {
       throw new BadRequestException('User not found')
     }
 
-    return this.transactionsService.findAll(user.id, +limit, offset);
+    return this.transactionsService.findAll(user.id, +limit, +offset);
   }
 
   /**
