@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe, } from '@nestjs/common';
 import { UserAccountService } from './user-account.service';
 import { CreateUserAccountDto, CreateUserAccountSchema } from './dto/create-user-account.dto';
 import { UpdateUserAccountDto, UpdateUserAccountSchema } from './dto/update-user-account.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { Request } from 'express';
+import { User, UserEntity } from '../decorator/user.decorator';
 
 @Controller('account')
 export class UserAccountController {
@@ -18,25 +18,9 @@ export class UserAccountController {
   @UsePipes(new ZodValidationPipe(CreateUserAccountSchema))
   create(
     @Body() createUserAccountDto: CreateUserAccountDto,
-    @Req() req: Request,
+    @User() user: UserEntity,
   ) {
-    const user = req['user']
-
-    if (!user || !user.id) {
-      throw new BadRequestException('User not found')
-    }
-
     return this.userAccountService.create(createUserAccountDto, user.id);
-  }
-
-  /**
-   * Get all user accounts
-   * @param req 
-   * @returns 
-   */
-  @Get()
-  findAll(@Req() req: Request,) {
-    return this.userAccountService.findAll();
   }
 
   /**
@@ -67,7 +51,7 @@ export class UserAccountController {
    * @returns 
    */
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateUserAccountDto: UpdateUserAccountDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(UpdateUserAccountSchema)) updateUserAccountDto: UpdateUserAccountDto) {
     return this.userAccountService.update(id, updateUserAccountDto);
   }
 

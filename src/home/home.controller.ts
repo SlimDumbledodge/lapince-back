@@ -1,6 +1,6 @@
-import { Controller, Get, Req, BadRequestException, Query } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { HomeService } from './home.service';
-import { Request } from 'express';
+import { User, UserEntity } from '../decorator/user.decorator';
 
 @Controller('home')
 export class HomeController {
@@ -8,16 +8,10 @@ export class HomeController {
 
   @Get()
   findAll(
-    @Req() req: Request,
+    @User() user: UserEntity,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
   ) {
-    const user = req['user']
-
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
-
     return this.homeService.findAll(user.id, startDate, endDate);
   }
 }

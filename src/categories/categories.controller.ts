@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, CreateCategorySchema } from './dto/create-category.dto';
 import { UpdateCategoryDto, UpdateCategorySchema } from './dto/update-category.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { Request } from 'express';
+import { User, UserEntity } from '../decorator/user.decorator';
 
 @Controller('categories')
 export class CategoriesController {
@@ -18,14 +18,8 @@ export class CategoriesController {
   @UsePipes(new ZodValidationPipe(CreateCategorySchema))
   create(
     @Body() createCategoryDto: CreateCategoryDto,
-    @Req() req: Request,
+    @User() user: UserEntity,
   ) {
-    const user = req['user']
-
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
-
     return this.categoriesService.create(createCategoryDto, user.id);
   }
 
@@ -34,13 +28,7 @@ export class CategoriesController {
    * @returns 
    */
   @Get()
-  findAll(@Req() req: Request,) {
-    const user = req['user']
-
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
-
+  findAll(@User() user: UserEntity,) {
     return this.categoriesService.findAll(user.id);
   }
 
@@ -50,11 +38,7 @@ export class CategoriesController {
    * @returns 
    */
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
-    const user = req['user']
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
+  findOne(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
     return this.categoriesService.findOne(id, user.id);
   }
 
@@ -68,12 +52,8 @@ export class CategoriesController {
   update(
     @Param('id', ParseUUIDPipe) id: string, 
     @Body(new ZodValidationPipe(UpdateCategorySchema)) updateCategoryDto: UpdateCategoryDto,
-    @Req() req: Request,
+    @User() user: UserEntity,
   ) {
-    const user = req['user']
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
     return this.categoriesService.update(id, updateCategoryDto, user.id);
   }
 
@@ -83,11 +63,7 @@ export class CategoriesController {
    * @returns 
    */
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
-    const user = req['user']
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
+  remove(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
     return this.categoriesService.remove(id, user.id);
   }
 }

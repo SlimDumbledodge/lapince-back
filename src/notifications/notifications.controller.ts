@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, UsePipes, ParseUUIDPipe, Req, Query, BadRequestException, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, UsePipes, ParseUUIDPipe, Query, Delete } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { UpdateNotificationDto, UpdateNotificationSchema } from './dto/update-notification.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import { Request } from 'express';
+import { User, UserEntity } from '../decorator/user.decorator';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -18,15 +18,11 @@ export class NotificationsController {
    */
   @Get()
   findAll(
-    @Req() req: Request,
+    @User() user: UserEntity,
     @Query('isRead') isRead: boolean = false,
     @Query('page') page: number = 0,
     @Query('limit') limit: number = 10
   ) {
-    const user = req['user']
-    if (!user || !user.id) {
-      throw new BadRequestException('User not found')
-    }
     return this.notificationsService.findAll(user.id, isRead, limit, page);
   }
 
@@ -37,11 +33,7 @@ export class NotificationsController {
    * @returns 
    */
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
-    const user = req['user']
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
+  findOne(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
     return this.notificationsService.findOne(id, user.id);
   }
 
@@ -56,12 +48,8 @@ export class NotificationsController {
   update(
     @Param('id', ParseUUIDPipe) id: string, 
     @Body(new ZodValidationPipe(UpdateNotificationSchema)) updateNotificationDto: UpdateNotificationDto,
-    @Req() req: Request
+    @User() user: UserEntity,
   ) {
-    const user = req['user']
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
     return this.notificationsService.update(id, updateNotificationDto, user.id);
   }
 
@@ -72,11 +60,7 @@ export class NotificationsController {
    * @returns
    */
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
-    const user = req['user']
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
+  remove(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
     return this.notificationsService.remove(id, user.id);
   }
 }

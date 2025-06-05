@@ -5,6 +5,7 @@ import { CreateUserDto, CreateUserSchema } from './dto/create-user.dto';
 import { UpdateUserDto, UpdateUserSchema } from './dto/update-user.dto';
 import { UpdatePasswordDto, UpdatePasswordSchema } from './dto/update-password.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
+import { User, UserEntity } from '../decorator/user.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -17,40 +18,23 @@ export class UsersController {
   }
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.findOne(id);
+  findOne(@User() user: UserEntity,) {
+    return this.usersService.findOne(user.id);
   }
 
   @Patch()
   update(
     @Body(new ZodValidationPipe(UpdateUserSchema)) updateUserDto: UpdateUserDto,
-    @Req() req: Request,
+    @User() user: UserEntity,
   ) {
-    const user = req['user']
-
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
-
     return this.usersService.update(user.id, updateUserDto);
   }
 
   @Patch('password')
   updatePassword(
     @Body(new ZodValidationPipe(UpdatePasswordSchema)) updateUserDto: UpdatePasswordDto,
-    @Req() req: Request,
+    @User() user: UserEntity,
   ) {
-    const user = req['user']
-
-    if (!user ||!user.id) {
-      throw new BadRequestException('User not found')
-    }
-
     return this.usersService.updatePassword(user.id, updateUserDto);
   }
 }
