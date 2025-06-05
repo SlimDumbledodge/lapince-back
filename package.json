@@ -35,6 +35,7 @@
     "bcrypt": "^6.0.0",
     "bullmq": "^5.53.1",
     "dayjs": "^1.11.13",
+    "decimal.js": "^10.5.0",
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.1",
     "drizzle-orm": "^0.43.1",
