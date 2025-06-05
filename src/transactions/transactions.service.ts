@@ -350,4 +350,10 @@ export class TransactionsService {
       // TODO : make the recurring system
     })
   }
+
+  /**
+   * Stop de recurring transaction
+   * @param transactionParentId
+   */
+  // TODO : Implement this method to stop the recurring transaction
 }
