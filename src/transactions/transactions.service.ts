@@ -151,13 +151,13 @@ export class TransactionsService {
       await this.budgetService.updateActualAmount(
         parentTransaction.categoryId,
         userId,
-        parentTransaction.transactionsType,
+        parentTransaction.transactionType,
         parentTransaction.amount,
         childTransaction[0].date,
       );
 
       // Update the total amount of the user account
-      await this.userAccountService.updateTotalAmount(userId, parentTransaction.transactionsType, parentTransaction.amount);
+      await this.userAccountService.updateTotalAmount(userId, parentTransaction.transactionType, parentTransaction.amount);
 
       // Send a notification for the child transaction
       await this.notificationsService.create({
@@ -313,7 +313,7 @@ export class TransactionsService {
         await this.budgetService.updateActualAmount(
           transaction.categoryId,
           userId,
-          transaction.transactionsType,
+          transaction.transactionType,
           -transaction.amount,
           transaction.date,
         );
@@ -322,7 +322,7 @@ export class TransactionsService {
         await this.budgetService.updateActualAmount(
           updateTransactionDto.categoryId,
           userId,
-          updateTransactionDto.transactionType ?? transaction.transactionsType,
+          updateTransactionDto.transactionType ?? transaction.transactionType,
           updateTransactionDto.amount ?? 0,
           updateTransactionDto.date ?? transaction.date,
         )

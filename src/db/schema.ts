@@ -64,7 +64,7 @@ export const transactions = pgTable('transactions', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userAccountId: uuid('user_account_id').references(() => userAccounts.id).notNull(),
   amount: real('amount').notNull(),
-  transactionsType: integer('transactions_type').default(2).notNull(), // 1 = income, 2 = expense
+  transactionType: integer('transactions_type').default(2).notNull(), // 1 = income, 2 = expense
   date: timestamp('date').notNull(),
   description: text('description'),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
