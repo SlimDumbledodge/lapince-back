@@ -35,6 +35,12 @@ export class BudgetService {
       throw new NotFoundException('Category not found');
     }
 
+    // Verify if the user has already a budget for this category
+    const existingBudget = await this.findOneByCategoryId(createBudgetDto.categoryId, userId);
+    if (existingBudget) {
+      throw new NotFoundException('You already have a budget for this category');
+    }
+
     const budget = await this.db.insert(schema.budgets).values({
       ...createBudgetDto,
       userId,
