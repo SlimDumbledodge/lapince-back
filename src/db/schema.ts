@@ -68,7 +68,7 @@ export const transactions = pgTable('transactions', {
   date: timestamp('date').notNull(),
   description: text('description'),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
-  isReccuring: boolean('is_reccuring').notNull().default(false),
+  isRecurring: boolean('is_reccuring').notNull().default(false),
   reccuringFrequency: integer('reccuring_frequency').default(30),
   reccuringStartDate: timestamp('reccuring_start_date'),
   reccuringEndDate: timestamp('reccuring_end_date'),
@@ -83,6 +83,24 @@ export const transactions = pgTable('transactions', {
 
 export type Transaction = typeof transactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
+
+/**
+ * Transaction Reccuring info table
+ */
+export const transactionReccuringInfo = pgTable('transaction_reccuring_info', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  transactionParentId: uuid('transaction_parent_id').references(() => transactions.id).notNull(),
+  lastTransactionDate: timestamp('last_transaction_date').notNull(),
+  lastTransactionId: uuid('last_transaction_id').references(() => transactions.id).notNull(),
+  createdAt: timestamp('created_at').default(sql`now()`).notNull(),
+  updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
+}, (t) => ({
+  transactionParentIdIdx: index('transaction_reccuring_info_transaction_parent_id_idx').on(t.transactionParentId),
+  lastTransactionIdIdx: index('transaction_reccuring_info_last_transaction_id_idx').on(t.lastTransactionId),
+}));
+
+export type TransactionReccuringInfo = typeof transactionReccuringInfo.$inferSelect;
+export type NewTransactionReccuringInfo = typeof transactionReccuringInfo.$inferInsert;
 
 /**
  * Category table

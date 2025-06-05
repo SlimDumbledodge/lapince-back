@@ -8,6 +8,8 @@ import { eq, and, desc, count } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
 import { BudgetService } from 'src/budget/budget.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { RecurringTransactionService } from 'src/lib/bullmq/reccuring-transaction/reccuring-transaction.service';
 
 @Injectable()
 export class TransactionsService {
@@ -16,6 +18,8 @@ export class TransactionsService {
     @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
     @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
     @Inject(BudgetService) private readonly budgetService: BudgetService,
+    @Inject(NotificationsService) private readonly notificationsService: NotificationsService,
+    @Inject(RecurringTransactionService) private readonly recurringTransactionService: RecurringTransactionService,
   ) { }
 
   /**
@@ -58,12 +62,83 @@ export class TransactionsService {
       await this.userAccountService.updateTotalAmount(userId, createTransactionDto.transactionType, createTransactionDto.amount);
 
       // Verify if the transaction is recurring
-      // TODO : make the recurring system
+      if (createTransactionDto.isRecurring) {
+        // Schedule the recurring transaction
+        await this.recurringTransactionService.scheduleRecurringTransaction(result[0], userId, true);
+
+        // Store the recurring transaction info
+        await tx.insert(schema.transactionReccuringInfo).values({
+          transactionParentId: result[0].id,
+          lastTransactionDate: result[0].date,
+          lastTransactionId: result[0].id, // Initially, the last transaction is the same as the parent
+          createdAt: new Date(),
+        });
+      }
 
       // return the transaction
       return result[0];
     })
 
+  }
+
+  /**
+   * Create child transactions for a recurring transaction
+   * @param transactionParentId
+   * @param userId
+   * @returns
+   */
+  async createChildTransactions(transactionParentId: string, userId: string): Promise<schema.Transaction> {
+    // Get the parent transaction
+    const parentTransaction = await this.findOne(transactionParentId, userId);
+    if (!parentTransaction) {
+      throw new NotFoundException('Parent transaction not found');
+    }
+
+    return this.db.transaction(async (tx) => {
+      await this.categoriesService.findOne(parentTransaction.categoryId, userId);
+
+      // Update the description of the child transaction
+      const description = parentTransaction.description ? `${parentTransaction.description} (Child)` : 'Child Transaction';
+
+      // Create the child transaction
+      const childTransaction = await tx.insert(schema.transactions).values({
+        ...parentTransaction,
+        id: undefined, // Generate a new ID
+        description: description,
+        reccuringParentId: parentTransaction.id, // Set the parent ID
+        date: new Date(),
+        createdAt: new Date(),
+      }).returning();
+
+      // Update the last transaction date and ID in the recurring info
+      await tx.update(schema.transactionReccuringInfo)
+        .set({
+          lastTransactionDate: childTransaction[0].date,
+          lastTransactionId: childTransaction[0].id,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.transactionReccuringInfo.transactionParentId, parentTransaction.id));
+
+      // Update the actual amount of the category budget
+      await this.budgetService.updateActualAmount(
+        parentTransaction.categoryId,
+        userId,
+        parentTransaction.transactionsType,
+        parentTransaction.amount,
+        childTransaction[0].date,
+      );
+
+      // Update the total amount of the user account
+      await this.userAccountService.updateTotalAmount(userId, parentTransaction.transactionsType, parentTransaction.amount);
+
+      // Send a notification for the child transaction
+      await this.notificationsService.create({
+        message: `Child transaction created for ${description}`,
+        type: 'transaction',
+      }, userId);
+
+      return childTransaction[0];
+    });
   }
 
   /**
@@ -155,7 +230,7 @@ export class TransactionsService {
    * @param updateTransactionDto 
    * @returns 
    */
-  async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string): Promise<schema.Transaction> {
+  async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string) {
     // Get the user account
     const userAccount = await this.userAccountService.findOneByUserId(userId);
     if (!userAccount) {
