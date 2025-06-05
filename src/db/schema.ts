@@ -72,6 +72,8 @@ export const transactions = pgTable('transactions', {
   reccuringFrequency: integer('reccuring_frequency').default(30),
   reccuringStartDate: timestamp('reccuring_start_date'),
   reccuringEndDate: timestamp('reccuring_end_date'),
+  reccuringParentId: uuid('reccuring_parent_id').references(() => transactions.id), // For reccuring transactions, link to the parent transaction
+  metadata: json('metadata').$type<Record<string, any>>().default({}).notNull(), // Store additional data like payment method, location, etc.
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({

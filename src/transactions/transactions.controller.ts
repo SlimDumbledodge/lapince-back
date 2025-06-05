@@ -72,7 +72,7 @@ export class TransactionsController {
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string, 
-    @Body() updateTransactionDto: UpdateTransactionDto,
+    @Body(new ZodValidationPipe(UpdateTransactionSchema)) updateTransactionDto: UpdateTransactionDto,
     @Req() req: Request,
   ) {
     const user = req['user']

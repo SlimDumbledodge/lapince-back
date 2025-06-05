@@ -43,7 +43,7 @@ export class TransactionsService {
         reccuringEndDate: createTransactionDto.reccuringEndDate ? new Date(createTransactionDto.reccuringEndDate) : null,
         userAccountId: userAccount.id,
         createdAt: new Date(),
-      } as unknown as schema.NewTransaction).returning();
+      }).returning();
 
       // Update the actual amount of the category budget
       await this.budgetService.updateActualAmount(
@@ -177,7 +177,7 @@ export class TransactionsService {
           reccuringStartDate: updateTransactionDto.reccuringStartDate ? new Date(updateTransactionDto.reccuringStartDate) : transaction.reccuringStartDate,
           reccuringEndDate: updateTransactionDto.reccuringEndDate ? new Date(updateTransactionDto.reccuringEndDate) : transaction.reccuringEndDate,
           updatedAt: new Date(),
-        } as unknown as schema.Transaction)
+        })
         .where(eq(schema.transactions.id, id))
         .returning();
 
