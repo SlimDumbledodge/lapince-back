@@ -23,10 +23,24 @@ export class TransactionsService {
   ) { }
 
   /**
-   * Create a new transaction
-   * @param createTransactionDto 
-   * @param userId
-   * @returns 
+   * Creates a new transaction for a given user.
+   * 
+   * This process includes:
+   * - Retrieving the associated user account
+   * - Validating the transaction category
+   * - Inserting the transaction into the database
+   * - Updating the actual amount of the related category's budget
+   * - Updating the total amount of the user's account
+   * - Handling recurring transactions if applicable (scheduling and storing related info)
+   * 
+   * All operations are wrapped in a single SQL transaction to ensure data consistency.
+   * 
+   * @param {CreateTransactionDto} createTransactionDto - The data for the transaction to be created, including amount, date, category, etc.
+   * @param {string} userId - The ID of the user creating the transaction
+   * @returns {Promise<schema.Transaction>} The newly created transaction
+   * 
+   * @throws {NotFoundException} If the user account is not found
+   * @throws {Error} If an error occurs during the database transaction
    */
   async create(createTransactionDto: CreateTransactionDto, userId: string): Promise<schema.Transaction> {
     // Get the user account
@@ -51,9 +65,9 @@ export class TransactionsService {
 
       // Update the actual amount of the category budget
       await this.budgetService.updateActualAmount(
-        createTransactionDto.categoryId, 
-        userId, 
-        createTransactionDto.transactionType, 
+        createTransactionDto.categoryId,
+        userId,
+        createTransactionDto.transactionType,
         createTransactionDto.amount,
         createTransactionDto.date,
       );
@@ -78,14 +92,28 @@ export class TransactionsService {
       // return the transaction
       return result[0];
     })
-
   }
 
   /**
-   * Create child transactions for a recurring transaction
-   * @param transactionParentId
-   * @param userId
-   * @returns
+   * Creates a child transaction based on a recurring parent transaction.
+   * 
+   * This process includes:
+   * - Retrieving the parent transaction and validating its existence
+   * - Validating the category associated with the parent transaction
+   * - Creating a new child transaction with updated description and current date
+   * - Updating the recurring transaction metadata (last transaction date and ID)
+   * - Updating the actual amount of the corresponding budget category
+   * - Updating the total amount of the user's account
+   * - Sending a notification about the creation of the child transaction
+   * 
+   * All operations are executed within a single SQL transaction to maintain data consistency.
+   * 
+   * @param {string} transactionParentId - The ID of the parent transaction from which the child is derived
+   * @param {string} userId - The ID of the user for whom the child transaction is created
+   * @returns {Promise<schema.Transaction>} The newly created child transaction
+   * 
+   * @throws {NotFoundException} If the parent transaction is not found
+   * @throws {Error} If an error occurs during the database transaction
    */
   async createChildTransactions(transactionParentId: string, userId: string): Promise<schema.Transaction> {
     // Get the parent transaction
@@ -271,7 +299,7 @@ export class TransactionsService {
 
       // Verify and update the budget
       if (updateTransactionDto.amount && (!updateTransactionDto.categoryId || (updateTransactionDto.categoryId === transaction.categoryId))) { // If if the same category       
-        if (amountDiff !== 0) {        
+        if (amountDiff !== 0) {
           await this.budgetService.updateActualAmount(
             updateTransactionDto.categoryId ?? transaction.categoryId,
             userId,
@@ -331,8 +359,8 @@ export class TransactionsService {
     return await this.db.transaction(async (tx) => {
       // Delete the transaction
       await tx
-       .delete(schema.transactions)
-       .where(eq(schema.transactions.id, id))
+        .delete(schema.transactions)
+        .where(eq(schema.transactions.id, id))
 
       // Update the actual amount of the category budget
       await this.budgetService.updateActualAmount(
