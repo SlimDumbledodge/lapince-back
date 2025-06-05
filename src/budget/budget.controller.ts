@@ -15,9 +15,8 @@ export class BudgetController {
    * @returns 
    */
   @Post()
-  @UsePipes(new ZodValidationPipe(CreateBudgetSchema))
   create(
-    @Body() createBudgetDto: CreateBudgetDto,
+    @Body(new ZodValidationPipe(CreateBudgetSchema)) createBudgetDto: CreateBudgetDto,
     @User() user: UserEntity
   ) {
     return this.budgetService.create(createBudgetDto, user.id);

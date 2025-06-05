@@ -15,9 +15,8 @@ export class CategoriesController {
    * @returns 
    */
   @Post()
-  @UsePipes(new ZodValidationPipe(CreateCategorySchema))
   create(
-    @Body() createCategoryDto: CreateCategoryDto,
+    @Body(new ZodValidationPipe(CreateCategorySchema)) createCategoryDto: CreateCategoryDto,
     @User() user: UserEntity,
   ) {
     return this.categoriesService.create(createCategoryDto, user.id);

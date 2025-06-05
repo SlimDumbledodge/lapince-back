@@ -15,9 +15,8 @@ export class UserAccountController {
    * @returns
    */
   @Post()
-  @UsePipes(new ZodValidationPipe(CreateUserAccountSchema))
   create(
-    @Body() createUserAccountDto: CreateUserAccountDto,
+    @Body(new ZodValidationPipe(CreateUserAccountSchema)) createUserAccountDto: CreateUserAccountDto,
     @User() user: UserEntity,
   ) {
     return this.userAccountService.create(createUserAccountDto, user.id);

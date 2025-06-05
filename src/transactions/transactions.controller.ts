@@ -15,9 +15,8 @@ export class TransactionsController {
    * @returns 
    */
   @Post()
-  @UsePipes(new ZodValidationPipe(CreateTransactionSchema))
   create(
-    @Body() createTransactionDto: CreateTransactionDto,
+    @Body(new ZodValidationPipe(CreateTransactionSchema)) createTransactionDto: CreateTransactionDto,
     @User() user: UserEntity,
   ) {
     return this.transactionsService.create(createTransactionDto, user.id);
