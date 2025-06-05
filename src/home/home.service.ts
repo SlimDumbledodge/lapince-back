@@ -1,9 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema';
-import dayjs from 'dayjs';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import dayjs, { Dayjs } from 'dayjs';
+import { eq, and, gte, lte } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import Decimal from 'decimal.js';
 
@@ -17,13 +17,21 @@ export class HomeService {
   /**
    * Get all home data
    * @param userId - The ID of the user
+   * @param startDate - The start date in ISO format (optional)
+   * @param endDate - The end date in ISO format (optional)
    */
-  async findAll(userId: string) {
+  async findAll(userId: string, startDate?: string, endDate?: string) {
+    console.log('findAll called with:', { userId, startDate, endDate });
     // Get the user account to ensure it exists
     const userAccount = await this.userAccountService.findOneByUserId(userId);
 
     const hebdo = await this.getHebdo(userAccount.id);
     const last6Months = await this.getLast6MonthsData(userAccount.id);
+    const byCategories = await this.getByCategoriesBetweenDates(
+      userAccount.id,
+      startDate ? dayjs(startDate) : undefined,
+      endDate ? dayjs(endDate) : undefined,
+    );
 
     return {
       hebdo: {
@@ -34,6 +42,11 @@ export class HomeService {
         totalIncome: last6Months.totalIncome,
         totalExpense: last6Months.totalExpense,
         byMonth: last6Months.totalByMonth,
+      },
+      byCategories: {
+        totalByCategory: byCategories.totalByCategory,
+        startDate: byCategories.startDate,
+        endDate: byCategories.endDate,
       },
     };
   }
@@ -91,7 +104,7 @@ export class HomeService {
    * Get data for last 6 months
    * @param userAccountId - The ID of the user
    */
-  async getLast6MonthsData(userAccountId: string) {
+  private async getLast6MonthsData(userAccountId: string) {
     const startDate = dayjs().subtract(5, 'month').startOf('month').toDate();
     const endDate = dayjs().endOf('month').toDate();
 
@@ -137,5 +150,65 @@ export class HomeService {
       totalIncome: totalByMonth.reduce((sum, month) => sum + month.income, 0),
       totalExpense: totalByMonth.reduce((sum, month) => sum + month.expense, 0),
     };
+  }
+
+  /**
+   * Get by categories between two dates
+   * @param userAccountId - The ID of the user
+   * @param startDate - The start date in ISO format
+   * @param endDate - The end date in ISO format
+   */
+  private async getByCategoriesBetweenDates(
+    userAccountId: string,
+    startDate: Dayjs = dayjs().startOf('month'),
+    endDate: Dayjs = dayjs().endOf('month')
+  ) {
+    // Verify the date format
+    if (!dayjs(startDate).isValid() || !dayjs(endDate).isValid()) {
+      throw new BadRequestException('Invalid date format. Use ISO format (YYYY-MM-DD).');
+    }
+
+    // Ensure startDate is before endDate
+    if (dayjs(startDate).isAfter(endDate)) {
+      throw new BadRequestException('Start date must be before end date.');
+    }
+
+    const result = await this.db
+      .select({
+        id: schema.transactions.id,
+        amount: schema.transactions.amount,
+        date: schema.transactions.date,
+        transactionsType: schema.transactions.transactionsType,
+        categoryId: schema.transactions.categoryId,
+      })
+      .from(schema.transactions)
+      .where(and(
+        eq(schema.transactions.userAccountId, userAccountId),
+        gte(schema.transactions.date, startDate.toDate()),
+        lte(schema.transactions.date, endDate.toDate()),
+      ))
+      .orderBy(schema.transactions.date);
+
+    const totalByCategory: { categoryId: string; total: number }[] = [];
+
+    for (const trx of result) {      
+      // If the transaction type is expense, we only want to sum expense
+      if (trx.transactionsType === 2) {
+        const existingExpenses = totalByCategory.find(c => c.categoryId === trx.categoryId && c.total > 0);
+        if (existingExpenses) {
+          existingExpenses.total = Number(
+            new Decimal(existingExpenses.total).plus(trx.amount).toFixed(2)
+          )
+        } else {
+          totalByCategory.push({ categoryId: trx.categoryId, total: trx.amount });
+        }
+      }
+    }
+
+    return {
+      totalByCategory,
+      startDate,
+      endDate,
+    }
   }
 }

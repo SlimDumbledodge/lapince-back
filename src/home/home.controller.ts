@@ -1,4 +1,4 @@
-import { Controller, Get, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Req, BadRequestException, Query } from '@nestjs/common';
 import { HomeService } from './home.service';
 import { Request } from 'express';
 
@@ -7,14 +7,17 @@ export class HomeController {
   constructor(private readonly homeService: HomeService) {}
 
   @Get()
-  findAll(@Req() req: Request) {
-
+  findAll(
+    @Req() req: Request,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
     const user = req['user']
 
     if (!user ||!user.id) {
       throw new BadRequestException('User not found')
     }
 
-    return this.homeService.findAll(user.id);
+    return this.homeService.findAll(user.id, startDate, endDate);
   }
 }
