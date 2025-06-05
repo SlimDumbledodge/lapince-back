@@ -179,19 +179,22 @@ export class BudgetService {
 
       // verify if the budget is reached or at 75% and send a notification if it is reached
       if (actualAmount >= budget.totalAmount * 0.75) {
+
         const category = await this.categoriesService.findOne(budget.categoryId, userId);
 
-        await this.notificationsService.create({
-          type: "budget",
-          message: `Your budget for ${category.name} is at 75% !!!`,
-        }, userId);
-      } else if (actualAmount >= budget.totalAmount) {
-        const category = await this.categoriesService.findOne(budget.categoryId, userId);
+        if (actualAmount >= budget.totalAmount) {
+          await this.notificationsService.create({
+            type: "budget",
+            message: `Your budget for ${category.name} is reached !!!`,
+          }, userId);
+          
+        } else {
 
-        await this.notificationsService.create({
-          type: "budget",
-          message: `Your budget for ${category.name} is reached !!!`,
-        }, userId);
+          await this.notificationsService.create({
+            type: "budget",
+            message: `Your budget for ${category.name} is at 75% !!!`,
+          }, userId);
+        }
       }
 
       return result[0];

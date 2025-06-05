@@ -84,7 +84,7 @@ describe('TransactionsService', () => {
       const userId = 'test-user-id';
 
       userAccountService.findOneByUserId.mockResolvedValue({ id: 'test-user-account-id' });
-      categoriesService.findOne.mockResolvedValue(null);
+      categoriesService.findOne.mockRejectedValue(new NotFoundException('Category not found'));
 
       await expect(service.create(storeTransactionTest, userId)).rejects.toThrow(NotFoundException);
     });
