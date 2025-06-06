@@ -29,6 +29,12 @@ export class AuthService {
 
   private readonly logger = new Logger(AuthService.name);
 
+  /**
+   * Registers a new user and creates an associated user account.
+   * @param registerDto - Registration data transfer object.
+   * @returns An object containing access and refresh tokens along with user information.
+   * @throws {UnauthorizedException} If user creation fails.
+   */
   async signUp(registerDto: RegisterDto) {
     const user = await this.usersService.create({
       firstName: registerDto.firstName,
@@ -55,6 +61,13 @@ export class AuthService {
     return this.createToken(data);
   }
 
+  /**
+   * Authenticates a user using email and password.
+   * @param email - User's email.
+   * @param password - User's plain text password.
+   * @returns An object containing access and refresh tokens along with user information.
+   * @throws {UnauthorizedException} If credentials are invalid.
+   */
   async login(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
 
@@ -72,6 +85,11 @@ export class AuthService {
     return this.createToken(user);
   }
 
+  /**
+   * Generates and returns access and refresh tokens for a user.
+   * @param user - The user entity with account information.
+   * @returns An object containing JWT tokens and user session data.
+   */
   private async createToken(user: schema.User & { accountName: string, amount: number }) {
     const payload = { email: user.email, sub: user.id, type: 'access' };
 
@@ -94,6 +112,11 @@ export class AuthService {
     };
   }
 
+  /**
+   * Creates a new refresh token and stores its hashed version in the database.
+   * @param user - The user entity.
+   * @returns The plain refresh token, its expiration date, and session ID.
+   */
   private async createRefreshToken(user: schema.User) {
     const sessionId = uuidv4();
 
@@ -121,6 +144,12 @@ export class AuthService {
     };
   }
 
+  /**
+   * Refreshes the access token using a valid refresh token.
+   * @param refreshToken - The JWT refresh token.
+   * @returns A new access token and its expiration date.
+   * @throws {UnauthorizedException} If token is invalid or session is not found.
+   */
   async refreshAccessToken(refreshToken: string) {
     try {
       const payload = await this.jwtService.verifyAsync(
@@ -176,6 +205,12 @@ export class AuthService {
     }
   }
 
+  /**
+   * Logs out a user by revoking a specific session.
+   * @param sessionId - The ID of the session to revoke.
+   * @returns A success message.
+   * @throws {UnauthorizedException} If the session is invalid or already revoked.
+   */
   async logout(sessionId: string) {
     const result = await this.db
       .update(schema.sessions)
@@ -192,8 +227,8 @@ export class AuthService {
   }
 
   /**
-   * Remove all revoked sessions
-   * @returns 
+   * Deletes all revoked or expired sessions from the database.
+   * @returns A success message.
    */
   async removeRevokedSessions() {
     await this.db
@@ -206,7 +241,8 @@ export class AuthService {
   }
 
   /**
-   * Cron job to remove revoked sessions
+   * Scheduled task (runs daily at midnight) to clean up revoked or expired sessions.
+   * Logs a debug message after execution.
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
@@ -218,10 +254,9 @@ export class AuthService {
   }
 
   /**
-   * Function to handle forgot password
-   * This endpoint allows a user to request a password reset.
-   * @param forgotPasswordDto 
-   * @returns 
+   * Handles forgot password requests by generating a reset link and sending it via email.
+   * @param forgotPasswordDto - Contains the user's email.
+   * @returns A generic success message regardless of email existence.
    */
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
     const user = await this.usersService.findByEmail(forgotPasswordDto.email);
@@ -254,9 +289,11 @@ export class AuthService {
   }
 
   /**
-   * Function to handle reset password
-   * @param resetPasswordDto 
-   * @returns 
+   * Resets the user's password using a valid reset token.
+   * @param resetPasswordDto - Contains the new password and reset token.
+   * @returns A success message.
+   * @throws {BadRequestException} If token is invalid or expired.
+   * @throws {UnauthorizedException} If the update fails.
    */
   async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     try {
