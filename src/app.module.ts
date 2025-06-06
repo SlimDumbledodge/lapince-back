@@ -14,6 +14,7 @@ import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from './mail/mail.module';
 import { HomeModule } from './home/home.module';
+import { SlackModule } from './slack/slack.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { HomeModule } from './home/home.module';
     BudgetResetModule,
     MailModule,
     HomeModule,
+    SlackModule,
   ],
 })
 export class AppModule implements NestModule {
