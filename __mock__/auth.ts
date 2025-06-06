@@ -24,7 +24,7 @@ export const expectedUser = {
   },
   sessionId: 'uuid_string',
   accessToken: mockAccessToken,
-  accessTokenExpiresAt: new Date(Date.now() + (process.env.JWT_EXPIRES_IN ? ms(process.env.JWT_EXPIRES_IN) : 6 * 60 * 60 * 1000)),
+  accessTokenExpiresAt: new Date(Date.now() + ms('15m')),
   refreshToken: mockAccessToken,
-  refreshTokenExpiresAt: new Date(Date.now() + (process.env.JWT_EXPIRES_IN ? ms(process.env.JWT_EXPIRES_IN) : 6 * 60 * 60 * 1000)),
+  refreshTokenExpiresAt: new Date(Date.now() + ms('6h')),
 }
