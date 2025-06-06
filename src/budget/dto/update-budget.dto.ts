@@ -3,11 +3,11 @@ import { CreateBudgetSchema } from "./create-budget.dto";
 
 export const UpdateBudgetSchema = z.object({
   totalAmount: z.number().optional(),
-  reccuringFrequency: z.number().optional(),
-  reccuringStartDate: z.string().optional(),
+  recurringFrequency: z.number().optional(),
+  recurringStartDate: z.string().optional(),
 }).refine((data) => {
-  if (data.reccuringStartDate) {
-    return !isNaN(Date.parse(data.reccuringStartDate));
+  if (data.recurringStartDate) {
+    return !isNaN(Date.parse(data.recurringStartDate));
   }
   return true;
 }, {

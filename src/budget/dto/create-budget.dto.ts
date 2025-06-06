@@ -3,19 +3,19 @@ import { z } from "zod";
 export const CreateBudgetSchema = z.object({
   categoryId: z.string().uuid(),
   totalAmount: z.number(),
-  reccuringFrequency: z.number().optional(),
-  reccuringStartDate: z.string().optional(),
+  recurringFrequency: z.number().optional(),
+  recurringStartDate: z.string().optional(),
 }).refine((data) => {
-  if (data.reccuringFrequency !== undefined) {
-    return !!data.reccuringStartDate;
+  if (data.recurringFrequency !== undefined) {
+    return !!data.recurringStartDate;
   }
   return true;
 }, {
   message: "reccuringStartDate is required when reccuringFrequency is provided",
   path: ["reccuringStartDate"],
 }).refine((data) => {
-  if (data.reccuringStartDate) {
-    return !isNaN(Date.parse(data.reccuringStartDate));
+  if (data.recurringStartDate) {
+    return !isNaN(Date.parse(data.recurringStartDate));
   }
   return true;
 }, {

@@ -1,7 +1,7 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { BullModule } from "@nestjs/bullmq";
-import { RecurringTransactionService } from "./reccuring-transaction.service";
-import { RecurringTransactionProcessor } from "./reccuring-transaction.processor";
+import { RecurringTransactionService } from "./recurring-transaction.service";
+import { RecurringTransactionProcessor } from "./recurring-transaction.processor";
 import { TransactionsModule } from "src/transactions/transactions.module";
 import { TransactionInitService } from "./transaction-init.service";
 import { DrizzleModule } from "src/db/drizzle/drizzle.module";

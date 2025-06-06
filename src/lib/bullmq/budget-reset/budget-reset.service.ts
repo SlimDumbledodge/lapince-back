@@ -8,7 +8,7 @@ export class BudgetResetService {
   constructor(@InjectQueue('budgetReset') private queue: Queue) {}
 
   async scheduleBudgetReset(budget: schema.Budget) {
-    const delay = this.calculateNextResetDelay(budget.lastResetDate, budget.reccuringFrequency ?? 30);
+    const delay = this.calculateNextResetDelay(budget.lastResetDate, budget.recurringFrequency ?? 30);
 
     await this.queue.add(
       'reset-budget',

@@ -64,15 +64,15 @@ export const transactions = pgTable('transactions', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userAccountId: uuid('user_account_id').references(() => userAccounts.id).notNull(),
   amount: real('amount').notNull(),
-  transactionType: integer('transactions_type').default(2).notNull(), // 1 = income, 2 = expense
+  transactionType: integer('transaction_type').default(2).notNull(), // 1 = income, 2 = expense
   date: timestamp('date').notNull(),
   description: text('description'),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
-  isRecurring: boolean('is_reccuring').notNull().default(false),
-  reccuringFrequency: integer('reccuring_frequency').default(30),
-  reccuringStartDate: timestamp('reccuring_start_date'),
-  reccuringEndDate: timestamp('reccuring_end_date'),
-  reccuringParentId: uuid('reccuring_parent_id').references(() => transactions.id), // For reccuring transactions, link to the parent transaction
+  isRecurring: boolean('is_recurring').notNull().default(false),
+  recurringFrequency: integer('recurring_frequency').default(30),
+  recurringStartDate: timestamp('recurring_start_date'),
+  recurringEndDate: timestamp('recurring_end_date'),
+  recurringParentId: uuid('recurring_parent_id').references(() => transactions.id), // For reccuring transactions, link to the parent transaction
   metadata: json('metadata').$type<Record<string, any>>().default({}).notNull(), // Store additional data like payment method, location, etc.
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
@@ -87,7 +87,7 @@ export type NewTransaction = typeof transactions.$inferInsert;
 /**
  * Transaction Reccuring info table
  */
-export const transactionReccuringInfo = pgTable('transaction_reccuring_info', {
+export const transactionRecurringInfo = pgTable('transaction_recurring_info', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   transactionParentId: uuid('transaction_parent_id').references(() => transactions.id).notNull(),
   lastTransactionDate: timestamp('last_transaction_date').notNull(),
@@ -95,12 +95,12 @@ export const transactionReccuringInfo = pgTable('transaction_reccuring_info', {
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({
-  transactionParentIdIdx: index('transaction_reccuring_info_transaction_parent_id_idx').on(t.transactionParentId),
-  lastTransactionIdIdx: index('transaction_reccuring_info_last_transaction_id_idx').on(t.lastTransactionId),
+  transactionParentIdIdx: index('transaction_recurring_info_transaction_parent_id_idx').on(t.transactionParentId),
+  lastTransactionIdIdx: index('transaction_recurring_info_last_transaction_id_idx').on(t.lastTransactionId),
 }));
 
-export type TransactionReccuringInfo = typeof transactionReccuringInfo.$inferSelect;
-export type NewTransactionReccuringInfo = typeof transactionReccuringInfo.$inferInsert;
+export type TransactionRecurringInfo = typeof transactionRecurringInfo.$inferSelect;
+export type NewTransactionRecurringInfo = typeof transactionRecurringInfo.$inferInsert;
 
 /**
  * Category table
@@ -129,8 +129,8 @@ export const budgets = pgTable('budgets', {
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
   totalAmount: real('total_amount').notNull(),
   actualAmount: real('actual_amount').default(0).notNull(),
-  reccuringFrequency: integer('reccuring_frequency').default(30),
-  reccuringStartDate: date('reccuring_start_date').default(sql`now()`).notNull(),
+  recurringFrequency: integer('recurring_frequency').default(30),
+  recurringStartDate: date('recurring_start_date').default(sql`now()`).notNull(),
   lastResetDate: date('last_reset_date').default(sql`now()`).notNull(),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),

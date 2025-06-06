@@ -5,7 +5,7 @@ import { UserAccountService } from '../user-account/user-account.service';
 import { CategoriesService } from '../categories/categories.service';
 import { BudgetService } from '../budget/budget.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { RecurringTransactionService } from '../lib/bullmq/reccuring-transaction/reccuring-transaction.service';
+import { RecurringTransactionService } from '../lib/bullmq/recurring-transaction/recurring-transaction.service';
 import * as schema from '../db/schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 
@@ -16,11 +16,11 @@ const transactionReturnTest : schema.NewTransaction = {
   date: new Date(),
   description: 'Test transaction',
   categoryId: 'test-category-id',
-  reccuringParentId: null,
+  recurringParentId: null,
   isRecurring: false,
-  reccuringFrequency: null,
-  reccuringStartDate: null,
-  reccuringEndDate: null,
+  recurringFrequency: null,
+  recurringStartDate: null,
+  recurringEndDate: null,
   metadata: {},
 };
 

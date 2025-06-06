@@ -9,7 +9,7 @@ import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
 import { BudgetService } from 'src/budget/budget.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
-import { RecurringTransactionService } from 'src/lib/bullmq/reccuring-transaction/reccuring-transaction.service';
+import { RecurringTransactionService } from 'src/lib/bullmq/recurring-transaction/recurring-transaction.service';
 
 @Injectable()
 export class TransactionsService {
@@ -57,8 +57,8 @@ export class TransactionsService {
       const result = await tx.insert(schema.transactions).values({
         ...createTransactionDto,
         date: new Date(createTransactionDto.date),
-        reccuringStartDate: createTransactionDto.reccuringStartDate ? new Date(createTransactionDto.reccuringStartDate) : null,
-        reccuringEndDate: createTransactionDto.reccuringEndDate ? new Date(createTransactionDto.reccuringEndDate) : null,
+        reccuringStartDate: createTransactionDto.recurringStartDate ? new Date(createTransactionDto.recurringStartDate) : null,
+        reccuringEndDate: createTransactionDto.recurringEndDate ? new Date(createTransactionDto.recurringEndDate) : null,
         userAccountId: userAccount.id,
         createdAt: new Date(),
       }).returning();
@@ -81,7 +81,7 @@ export class TransactionsService {
         await this.recurringTransactionService.scheduleRecurringTransaction(result[0], userId, true);
 
         // Store the recurring transaction info
-        await tx.insert(schema.transactionReccuringInfo).values({
+        await tx.insert(schema.transactionRecurringInfo).values({
           transactionParentId: result[0].id,
           lastTransactionDate: result[0].date,
           lastTransactionId: result[0].id, // Initially, the last transaction is the same as the parent
@@ -139,13 +139,13 @@ export class TransactionsService {
       }).returning();
 
       // Update the last transaction date and ID in the recurring info
-      await tx.update(schema.transactionReccuringInfo)
+      await tx.update(schema.transactionRecurringInfo)
         .set({
           lastTransactionDate: childTransaction[0].date,
           lastTransactionId: childTransaction[0].id,
           updatedAt: new Date(),
         })
-        .where(eq(schema.transactionReccuringInfo.transactionParentId, parentTransaction.id));
+        .where(eq(schema.transactionRecurringInfo.transactionParentId, parentTransaction.id));
 
       // Update the actual amount of the category budget
       await this.budgetService.updateActualAmount(
@@ -286,8 +286,8 @@ export class TransactionsService {
         .set({
           ...updateTransactionDto,
           date: updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
-          reccuringStartDate: updateTransactionDto.reccuringStartDate ? new Date(updateTransactionDto.reccuringStartDate) : transaction.reccuringStartDate,
-          reccuringEndDate: updateTransactionDto.reccuringEndDate ? new Date(updateTransactionDto.reccuringEndDate) : transaction.reccuringEndDate,
+          reccuringStartDate: updateTransactionDto.recurringStartDate ? new Date(updateTransactionDto.recurringStartDate) : transaction.recurringStartDate,
+          reccuringEndDate: updateTransactionDto.recurringEndDate ? new Date(updateTransactionDto.recurringEndDate) : transaction.recurringEndDate,
           updatedAt: new Date(),
         })
         .where(eq(schema.transactions.id, id))

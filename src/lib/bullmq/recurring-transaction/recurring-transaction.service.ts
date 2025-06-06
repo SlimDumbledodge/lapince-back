@@ -17,14 +17,14 @@ export class RecurringTransactionService {
    * @returns
    */
   async scheduleRecurringTransaction(transaction: schema.Transaction, userId: string, isParent: boolean = true) {
-    if (!isParent && transaction.reccuringParentId === null) {
+    if (!isParent && transaction.recurringParentId === null) {
       this.logger.error("Cannot schedule a child transaction without a parent ID", { transactionId: transaction.id });
       throw new Error("Cannot schedule a child transaction without a parent ID");
     }
 
-    const parentId = isParent ? transaction.id : transaction.reccuringParentId;
+    const parentId = isParent ? transaction.id : transaction.recurringParentId;
 
-    const delay = this.calculateNextTransactionDelay(transaction.date, transaction.reccuringFrequency ?? 30, transaction.reccuringEndDate);
+    const delay = this.calculateNextTransactionDelay(transaction.date, transaction.recurringFrequency ?? 30, transaction.recurringEndDate);
 
     if (delay === 0) {
       this.logger.debug(`No further transactions scheduled for ${transaction.id} as the end date has passed or the next transaction is in the past.`);

@@ -44,12 +44,12 @@ export class BudgetService {
     const budget = await this.db.insert(schema.budgets).values({
       ...createBudgetDto,
       userId,
-      lastResetDate: createBudgetDto.reccuringStartDate ?? new Date().toISOString(),
+      lastResetDate: createBudgetDto.recurringStartDate ?? new Date().toISOString(),
       createdAt: new Date(),
     }).returning();
 
     // create a schedule for reset the budget
-    if (createBudgetDto.reccuringFrequency) {
+    if (createBudgetDto.recurringFrequency) {
       await this.budgetResetService.scheduleBudgetReset(budget[0]);
     }
 
@@ -121,7 +121,7 @@ export class BudgetService {
      .update(schema.budgets)
      .set({
       totalAmount: updateBudgetDto.totalAmount,
-      reccuringFrequency: updateBudgetDto.reccuringFrequency,
+      recurringFrequency: updateBudgetDto.recurringFrequency,
       updatedAt: new Date(),
      })
      .where(eq(schema.budgets.id, id))
@@ -157,7 +157,7 @@ export class BudgetService {
 
       // Verify if the transaction is in this budget period
       const startDate = dayjs(budget.lastResetDate);
-      const endDate = dayjs(budget.lastResetDate).add(budget.reccuringFrequency ?? 30, 'days');
+      const endDate = dayjs(budget.lastResetDate).add(budget.recurringFrequency ?? 30, 'days');
       const transactionDay = dayjs(transactionDate);
 
       if (!transactionDay.isBetween(startDate, endDate, 'day', '[)')) {
