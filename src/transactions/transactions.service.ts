@@ -42,7 +42,7 @@ export class TransactionsService {
    * @throws {NotFoundException} If the user account is not found
    * @throws {Error} If an error occurs during the database transaction
    */
-  async create(createTransactionDto: CreateTransactionDto, userId: string): Promise<schema.Transaction> {
+  async create(createTransactionDto: CreateTransactionDto, userId: string): Promise<{ transaction: schema.Transaction, totalUserAccountAmount: number }> {
     // Get the user account
     const userAccount = await this.userAccountService.findOneByUserId(userId);
     if (!userAccount) {
@@ -73,7 +73,7 @@ export class TransactionsService {
       );
 
       // update the total amount of the user account
-      await this.userAccountService.updateTotalAmount(userId, createTransactionDto.transactionType, createTransactionDto.amount);
+      const userAccountChange = await this.userAccountService.updateTotalAmount(userId, createTransactionDto.transactionType, createTransactionDto.amount);
 
       // Verify if the transaction is recurring
       if (createTransactionDto.isRecurring) {
@@ -90,7 +90,10 @@ export class TransactionsService {
       }
 
       // return the transaction
-      return result[0];
+      return {
+        transaction: result[0],
+        totalUserAccountAmount: userAccountChange.amount,
+      };
     })
   }
 
