@@ -4,7 +4,7 @@ import { UpdateNotificationDto } from './dto/update-notification.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, desc, count } from 'drizzle-orm';
 
 @Injectable()
 export class NotificationsService {
@@ -35,7 +35,7 @@ export class NotificationsService {
    * @param page
    * @returns 
    */
-  async findAll(userId: string, isRead: boolean, limit: number, page: number): Promise<{data: schema.Notification[], limit: number, page: number}> {
+  async findAll(userId: string, isRead: boolean, limit: number, page: number): Promise<{data: schema.Notification[], limit: number, page: number, total: number}> {
     const conditions = [eq(schema.notifications.userId, userId)];
 
     if (!isRead) {
@@ -46,13 +46,21 @@ export class NotificationsService {
       .select()
       .from(schema.notifications)
       .where(and(...conditions))
+      .orderBy(desc(schema.notifications.createdAt))
       .limit(limit)
       .offset(page * limit);
+
+    // get the total count of notifications for the user
+    const totalCount = await this.db
+      .select({ count: count() })
+      .from(schema.notifications)
+      .where(and(...conditions));
   
     return {
       data: result,
       limit,
       page,
+      total: totalCount[0].count,
     };
   }
 
