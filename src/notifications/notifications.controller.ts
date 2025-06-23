@@ -22,7 +22,7 @@ export class NotificationsController {
     @Query('page') page: number = 0,
     @Query('limit') limit: number = 10
   ) {
-    return this.notificationsService.findAll(user.id, isRead, limit, page);
+    return this.notificationsService.findAll(user.id, isRead, +limit, +page);
   }
 
   /**
