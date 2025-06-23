@@ -1,10 +1,10 @@
 import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { UpdateNotificationDto, UpdateMultipleNotificationsDto } from './dto/update-notification.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and, or, desc, count } from 'drizzle-orm';
+import { eq, and, or, desc, count, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class NotificationsService {
@@ -100,6 +100,38 @@ export class NotificationsService {
     }).where(and(eq(schema.notifications.id, id), eq(schema.notifications.userId, userId))).returning();
 
     return result[0];
+  }
+
+  /**
+   * Update multiple notifications
+   * @param updateNotificationDto 
+   * @param userId
+   * @returns 
+   */
+  async updateMultiple(updateNotificationDto: UpdateMultipleNotificationsDto, userId: string): Promise<schema.Notification[]> {
+    if (updateNotificationDto.ids.length === 0) {
+      throw new BadRequestException('No notification IDs provided');
+    }
+
+    const notifications = await this.db
+      .select()
+      .from(schema.notifications)
+      .where(and(eq(schema.notifications.userId, userId), inArray(schema.notifications.id, updateNotificationDto.ids)));
+
+    if (notifications.length !== updateNotificationDto.ids.length) {
+      throw new BadRequestException('Some notifications not found or do not belong to the user');
+    }
+
+    const result = await this.db
+      .update(schema.notifications)
+      .set({
+        isRead: updateNotificationDto.isRead,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(schema.notifications.userId, userId), inArray(schema.notifications.id, updateNotificationDto.ids)))
+      .returning();
+
+    return result;
   }
 
   /**
