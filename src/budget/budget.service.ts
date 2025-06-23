@@ -23,10 +23,13 @@ export class BudgetService {
   ) {}
 
   /**
-   * Create a new budget for a user
-   * @param createBudgetDto 
-   * @param userId
-   * @returns 
+   * Creates a new budget for a specific user and category.
+   * Also schedules recurring reset if applicable.
+   *
+   * @param createBudgetDto - Budget creation payload.
+   * @param userId - The ID of the user creating the budget.
+   * @returns The created budget.
+   * @throws NotFoundException - If category doesn't exist or budget already exists for the category.
    */
   async create(createBudgetDto: CreateBudgetDto, userId: string): Promise<schema.Budget>  {
     // Verify if the category exists
@@ -57,20 +60,22 @@ export class BudgetService {
   }
 
   /**
-   * FInd all budgets by user id
-   * @param userId
-   * @returns 
+   * Retrieves all budgets for a specific user.
+   *
+   * @param userId - The ID of the user.
+   * @returns A list of budgets belonging to the user.
    */
   async findAllByUserId(userId: string): Promise<schema.Budget[]> {
     return this.db.select().from(schema.budgets).where(eq(schema.budgets.userId, userId));
   }
 
   /**
-   * Get a budget by is id
-   * => Verify if the budget is owned by the user
-   * @param id 
-   * @param userId
-   * @returns 
+   * Retrieves a specific budget by its ID, ensuring it belongs to the given user.
+   *
+   * @param id - The budget ID.
+   * @param userId - The ID of the user requesting the budget.
+   * @returns The found budget.
+   * @throws NotFoundException - If no matching budget is found.
    */
   async findOne(id: string, userId: string): Promise<schema.Budget> {
     const result = await this.db
@@ -85,11 +90,13 @@ export class BudgetService {
     return result[0];
   }
 
+
   /**
-   * Find a budget by category id
-   * @param categoryId
-   * @param userId
-   * @returns
+   * Retrieves a budget by its category ID for a specific user.
+   *
+   * @param categoryId - The category ID to look up the budget.
+   * @param userId - The ID of the user.
+   * @returns The budget if found, otherwise null.
    */
   async findOneByCategoryId(categoryId: string, userId: string): Promise<schema.Budget | null> {
     const result = await this.db
@@ -105,11 +112,13 @@ export class BudgetService {
   }
 
   /**
-   * Update a budget by id
-   * @param id (budget Id)
-   * @param updateBudgetDto
-   * @param userId 
-   * @returns 
+   * Updates an existing budget's total amount and recurring frequency.
+   *
+   * @param id - The ID of the budget to update.
+   * @param updateBudgetDto - Payload containing update values.
+   * @param userId - The ID of the user requesting the update.
+   * @returns The updated budget.
+   * @throws NotFoundException - If the budget doesn't exist or doesn't belong to the user.
    */
   async update(id: string, updateBudgetDto: UpdateBudgetDto, userId: string): Promise<schema.Budget> {
     const budget = await this.findOne(id, userId);
@@ -131,13 +140,16 @@ export class BudgetService {
   }
 
   /**
-   * Update a budget actual amount for a category
-   * @param categoryId
-   * @param userId
-   * @param type (1 = income, 2 = expense)
-   * @param amount
-   * @param transactionDate
-   * @returns
+   * Updates the actual amount of a budget based on a transaction.
+   * Validates transaction date falls within the current budget period.
+   * Sends notifications if budget reaches or exceeds 75% or 100%.
+   *
+   * @param categoryId - The category ID associated with the transaction.
+   * @param userId - The user ID performing the transaction.
+   * @param type - 1 for income (subtract), 2 for expense (add).
+   * @param amount - The transaction amount.
+   * @param transactionDate - The date of the transaction.
+   * @returns The updated budget or null if outside the current period.
    */
   async updateActualAmount(categoryId: string, userId: string, type: number, amount: number, transactionDate: string | Date): Promise<schema.Budget | null> {
     const budget = await this.findOneByCategoryId(categoryId, userId);
@@ -202,9 +214,11 @@ export class BudgetService {
   }
 
   /**
-   * Reset an actual amount of a budget by id
-   * @param id (budget Id)
-   * @returns
+   * Resets a budget's actual amount and updates the last reset date.
+   * Intended to be called by a scheduled job.
+   *
+   * @param id - The ID of the budget to reset.
+   * @returns The updated budget after reset or null if not found.
    */
   async resetActualAmount(id: string): Promise<schema.Budget | null> {
     const budget = await this.db
@@ -234,10 +248,11 @@ export class BudgetService {
   }
 
   /**
-   * Delete a budget by id
-   * @param id (budget Id)
-   * @param userId
-   * @returns 
+   * Deletes a budget by ID, ensuring it belongs to the user.
+   *
+   * @param id - The ID of the budget to delete.
+   * @param userId - The user ID requesting the deletion.
+   * @returns void
    */
   async remove(id: string, userId: string): Promise<void> {
     return this.db
