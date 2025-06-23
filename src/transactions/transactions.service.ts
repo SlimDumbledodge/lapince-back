@@ -290,8 +290,8 @@ export class TransactionsService {
         .set({
           ...updateTransactionDto,
           date: updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
-          reccuringStartDate: updateTransactionDto.recurringStartDate ? new Date(updateTransactionDto.recurringStartDate) : transaction.recurringStartDate,
-          reccuringEndDate: updateTransactionDto.recurringEndDate ? new Date(updateTransactionDto.recurringEndDate) : transaction.recurringEndDate,
+          recurringStartDate: updateTransactionDto.recurringStartDate ? new Date(updateTransactionDto.recurringStartDate) : transaction.recurringStartDate,
+          recurringEndDate: updateTransactionDto.recurringEndDate ? new Date(updateTransactionDto.recurringEndDate) : transaction.recurringEndDate,
           updatedAt: new Date(),
         })
         .where(eq(schema.transactions.id, id))

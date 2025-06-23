@@ -1,15 +1,17 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, Optional } from '@nestjs/common';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto, UpdateMultipleNotificationsDto } from './dto/update-notification.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
 import { eq, and, or, desc, count, inArray } from 'drizzle-orm';
+import { SlackService } from 'src/slack/slack.service';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
+    @Optional() @Inject(SlackService) private readonly slackService?: SlackService
   ) {}
 
   /**
@@ -24,6 +26,13 @@ export class NotificationsService {
       userId,
       createdAt: new Date(),
     }).returning();
+
+    // If Slack integration is enabled, send a notification to Slack
+    if (this.slackService) {
+      // TODO : Implement a more structured message format with levels, attachments and user mentions
+      await this.slackService.postToSlack(`New notification for user ${userId}: ${createNotificationDto.message}`);
+    }
+
     return notification[0];
   }
 

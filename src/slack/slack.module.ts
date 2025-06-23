@@ -1,15 +1,22 @@
-import { Module, DynamicModule } from "@nestjs/common";
+import { Module, DynamicModule, Global } from "@nestjs/common";
 import { SlackService } from "./slack.service";
 import { SlackController } from "./slack.controller";
 import { HttpModule } from "@nestjs/axios";
 
+interface SlackModuleOptions {
+  enable?: boolean;
+  isGlobal?: boolean;
+}
+
+@Global()
 @Module({})
 export class SlackModule {
-  static register(enable: boolean = false): DynamicModule {
-    const providers = enable ? [SlackService] : [];
-    const controllers = enable ? [SlackController] : [];
+  static register(options: SlackModuleOptions = {}): DynamicModule {
+    const providers = options.enable ? [SlackService] : [];
+    const controllers = options.enable ? [SlackController] : [];
 
     return {
+      global: options.isGlobal,
       module: SlackModule,
       imports: [
         HttpModule.register({

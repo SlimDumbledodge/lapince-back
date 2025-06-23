@@ -43,7 +43,10 @@ import { SlackModule } from './slack/slack.module';
     BudgetResetModule,
     MailModule,
     HomeModule,
-    SlackModule.register(process.env.SLACK_ENABLED === 'true' || process.env.SLACK_ENABLED === '1'),
+    SlackModule.register({
+      enable: process.env.SLACK_ENABLED === 'true',
+      isGlobal: true,
+    }),
   ],
 })
 export class AppModule implements NestModule {
