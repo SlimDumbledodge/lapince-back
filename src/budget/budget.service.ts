@@ -1,15 +1,16 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, forwardRef } from '@nestjs/common';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { CategoriesService } from 'src/categories/categories.service';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween'
 import { BudgetResetService } from 'src/lib/bullmq/budget-reset/budget-reset.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { TransactionsService } from 'src/transactions/transactions.service';
 
 dayjs.extend(isBetween);
 
@@ -20,6 +21,7 @@ export class BudgetService {
     @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
     @Inject(BudgetResetService) private readonly budgetResetService: BudgetResetService,
     @Inject(NotificationsService) private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => TransactionsService)) private readonly transactionsService: TransactionsService,
   ) {}
 
   /**
@@ -44,12 +46,30 @@ export class BudgetService {
       throw new NotFoundException('You already have a budget for this category');
     }
 
+    // Get all transactions for this category for this month after the recurringStartDate and set the actual amount to the sum of all transactions
+    const startDate = createBudgetDto.recurringStartDate ? dayjs(createBudgetDto.recurringStartDate) : dayjs();
+    const today = dayjs();
+
+    // Adjust the start date to the next recurring frequency if it is before today
+    let adjustedDate = startDate;
+    while (adjustedDate.add(createBudgetDto.recurringFrequency || 30, 'day').isBefore(today) || adjustedDate.add(createBudgetDto.recurringFrequency || 30, 'day').isSame(today)) {
+      adjustedDate = adjustedDate.add(createBudgetDto.recurringFrequency || 30, 'day');
+    }
+
+    const totalSinceStart = await this.transactionsService.findAllByCategoryId(createBudgetDto.categoryId, userId, adjustedDate.toDate());
+
+    const actualAmount = totalSinceStart.reduce((sum, transaction) => {
+      return sum + (transaction.transactionType === 1 ? -transaction.amount : transaction.amount);
+    }, 0);
+
     const budget = await this.db.insert(schema.budgets).values({
       ...createBudgetDto,
+      actualAmount,
       userId,
-      lastResetDate: createBudgetDto.recurringStartDate ?? new Date().toISOString(),
+      recurringStartDate: adjustedDate.toISOString(),
+      lastResetDate: adjustedDate.toISOString() ?? new Date().toISOString(),
       createdAt: new Date(),
-    }).returning();
+    }).returning();    
 
     // create a schedule for reset the budget
     if (createBudgetDto.recurringFrequency) {
@@ -66,7 +86,7 @@ export class BudgetService {
    * @returns A list of budgets belonging to the user.
    */
   async findAllByUserId(userId: string): Promise<schema.Budget[]> {
-    return this.db.select().from(schema.budgets).where(eq(schema.budgets.userId, userId));
+    return this.db.select().from(schema.budgets).where(eq(schema.budgets.userId, userId)).orderBy(desc(schema.budgets.createdAt));
   }
 
   /**
@@ -241,6 +261,16 @@ export class BudgetService {
      })
     .where(eq(schema.budgets.id, id))
     .returning();
+
+    // send a notification to the user that the budget has been reset
+    if (result.length > 0) {
+      const budgetData = result[0];
+      await this.notificationsService.create({
+        type: "budget",
+        message: `Your budget for ${budgetData.categoryId} has been reset.`,
+        level: "info",
+      }, budgetData.userId);
+    }
 
     if (result.length === 0) {
       return null;

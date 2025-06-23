@@ -1,10 +1,10 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, forwardRef } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, gte } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
 import { BudgetService } from 'src/budget/budget.service';
@@ -17,7 +17,7 @@ export class TransactionsService {
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
     @Inject(UserAccountService) private readonly userAccountService: UserAccountService,
     @Inject(CategoriesService) private readonly categoriesService: CategoriesService,
-    @Inject(BudgetService) private readonly budgetService: BudgetService,
+    @Inject(forwardRef(() => BudgetService)) private readonly budgetService: BudgetService,
     @Inject(NotificationsService) private readonly notificationsService: NotificationsService,
     @Inject(RecurringTransactionService) private readonly recurringTransactionService: RecurringTransactionService,
   ) { }
@@ -219,6 +219,30 @@ export class TransactionsService {
       total: totalCount[0].count,
       lastPage: Math.ceil(totalCount[0].count / limit) - 1
     }
+  }
+
+  /**
+   * Get all transactions by category id
+   * @param categoryId 
+   * @param userId 
+   * @param startDate 
+   * @returns 
+   */
+  async findAllByCategoryId(categoryId: string, userId: string, startDate?: Date): Promise<schema.Transaction[]> {
+    const userAccount = await this.userAccountService.findOneByUserId(userId);
+
+    if (!userAccount) {
+      throw new NotFoundException('User account not found');
+    }
+
+    const startDateCondition = startDate 
+      ? and(gte(schema.transactions.date, startDate), eq(schema.transactions.userAccountId, userAccount.id), eq(schema.transactions.categoryId, categoryId)) 
+      : and(eq(schema.transactions.userAccountId, userAccount.id), eq(schema.transactions.categoryId, categoryId));
+
+    return await this.db
+      .select()
+      .from(schema.transactions)
+      .where(startDateCondition)
   }
 
   /**

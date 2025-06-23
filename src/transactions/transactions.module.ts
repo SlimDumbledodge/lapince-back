@@ -11,9 +11,9 @@ import { RecurringTransactionModule } from 'src/lib/bullmq/recurring-transaction
 @Module({
   imports: [
     DrizzleModule, 
-    UserAccountModule, 
-    CategoriesModule, 
-    BudgetModule,
+    UserAccountModule,
+    CategoriesModule,
+    forwardRef(() => BudgetModule),
     NotificationsModule,
     forwardRef(() => RecurringTransactionModule),
   ],

@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { CreateBudgetSchema } from "./create-budget.dto";
+import dayjs from "dayjs";
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
+
+dayjs.extend(isSameOrBefore);
+
+const today = dayjs().startOf("day").toDate();
 
 export const UpdateBudgetSchema = z.object({
   totalAmount: z.number().optional(),
@@ -13,6 +18,15 @@ export const UpdateBudgetSchema = z.object({
 }, {
   message: "reccuringStartDate must be a valid ISO date string",
   path: ["reccuringStartDate"],
+})
+.refine((data) => {
+  if (data.recurringStartDate) {
+    return dayjs(data.recurringStartDate).startOf("day").isSameOrBefore(today);
+  }
+  return true;
+}, {
+  message: "recurringStartDate must be today or in the past",
+  path: ["recurringStartDate"],
 });
 
 export type UpdateBudgetDto = z.infer<typeof UpdateBudgetSchema>;
