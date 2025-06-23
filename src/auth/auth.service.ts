@@ -35,7 +35,7 @@ export class AuthService {
    * @returns An object containing access and refresh tokens along with user information.
    * @throws {UnauthorizedException} If user creation fails.
    */
-  async signUp(registerDto: RegisterDto) {
+  async signUp(registerDto: RegisterDto, ipAddress?: string, userAgent?: string) {
     const user = await this.usersService.create({
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
@@ -58,7 +58,7 @@ export class AuthService {
       amount: userAccount.amount,
     }
 
-    return this.createToken(data);
+    return this.createToken(data, ipAddress, userAgent);
   }
 
   /**
@@ -68,7 +68,7 @@ export class AuthService {
    * @returns An object containing access and refresh tokens along with user information.
    * @throws {UnauthorizedException} If credentials are invalid.
    */
-  async login(email: string, password: string) {
+  async login(email: string, password: string, ipAddress?: string, userAgent?: string) {
     const user = await this.usersService.findByEmail(email);
 
     if (!user) {
@@ -82,7 +82,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.createToken(user);
+    return this.createToken(user, ipAddress, userAgent);
   }
 
   /**
@@ -90,10 +90,10 @@ export class AuthService {
    * @param user - The user entity with account information.
    * @returns An object containing JWT tokens and user session data.
    */
-  private async createToken(user: schema.User & { accountName: string, amount: number }) {
+  private async createToken(user: schema.User & { accountName: string, amount: number }, ipAddress?: string, userAgent?: string) {
     const payload = { email: user.email, sub: user.id, type: 'access' };
 
-    const refresh_token = await this.createRefreshToken(user);
+    const refresh_token = await this.createRefreshToken(user, ipAddress, userAgent);
 
     return {
       user: {
@@ -117,7 +117,7 @@ export class AuthService {
    * @param user - The user entity.
    * @returns The plain refresh token, its expiration date, and session ID.
    */
-  private async createRefreshToken(user: schema.User) {
+  private async createRefreshToken(user: schema.User, ipAddress?: string, userAgent?: string) {
     const sessionId = uuidv4();
 
     const payload = { sub: user.id, type: 'refresh', sid: sessionId };
@@ -134,6 +134,8 @@ export class AuthService {
       id: sessionId,
       userId: user.id,
       tokenHash: await bcrypt.hash(refreshToken, 10),
+      ipAddress: ipAddress ?? 'unknown',
+      userAgent: userAgent ?? 'unknown',
       expiresAt
     })
 
@@ -150,7 +152,8 @@ export class AuthService {
    * @returns A new access token and its expiration date.
    * @throws {UnauthorizedException} If token is invalid or session is not found.
    */
-  async refreshAccessToken(refreshToken: string) {
+  async refreshAccessToken(refreshToken: string, ipAddress?: string, userAgent?: string) {
+    // TODO : check if the ip address and user agent match the session (security measure if the refresh or access token is stolen)
     try {
       const payload = await this.jwtService.verifyAsync(
         refreshToken,
