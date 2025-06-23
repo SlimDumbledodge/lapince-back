@@ -10,7 +10,6 @@ export class NotificationsController {
 
   /**
    * Get all notifications for the current user
-   * @param req
    * @param isRead
    * @param page
    * @param limit
@@ -29,7 +28,6 @@ export class NotificationsController {
   /**
    * Get a notification by id
    * @param id 
-   * @param req
    * @returns 
    */
   @Get(':id')
@@ -41,7 +39,6 @@ export class NotificationsController {
    * Update a notification
    * @param id 
    * @param updateNotificationDto 
-   * @param req
    * @returns 
    */
   @Patch(':id')
@@ -54,9 +51,14 @@ export class NotificationsController {
   }
 
   /**
+   * Update multiple notifications
+   * @param updateNotificationDto
+   * 
+   */
+
+  /**
    * Delete a notification
    * @param id
-   * @param req
    * @returns
    */
   @Delete(':id')

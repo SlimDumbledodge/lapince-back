@@ -166,6 +166,7 @@ export class TransactionsService {
       await this.notificationsService.create({
         message: `Child transaction created for ${description}`,
         type: 'transaction',
+        level: 'info',
       }, userId);
 
       return childTransaction[0];

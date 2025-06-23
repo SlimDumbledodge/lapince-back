@@ -198,6 +198,7 @@ export class BudgetService {
           await this.notificationsService.create({
             type: "budget",
             message: `Your budget for ${category.name} is reached !!!`,
+            level: "error",
           }, userId);
           
         } else {
@@ -205,6 +206,7 @@ export class BudgetService {
           await this.notificationsService.create({
             type: "budget",
             message: `Your budget for ${category.name} is at 75% !!!`,
+            level: "warning",
           }, userId);
         }
       }

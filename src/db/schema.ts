@@ -146,11 +146,13 @@ export type NewBudget = typeof budgets.$inferInsert;
  * Notification table
  */
 export const notificationTypes = pgEnum('notification_type', ['transaction', 'budget', 'reminder']);
+export const notificationLevels = pgEnum('notification_level', ['success', 'info', 'warning', 'error']);
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid('user_id').references(() => users.id).notNull(),
   type: notificationTypes('type').notNull(),
   message: text('message').notNull(),
+  level: notificationLevels('level').notNull().default('info'),
   isRead: boolean('is_read').notNull().default(false),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
