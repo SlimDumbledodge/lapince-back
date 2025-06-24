@@ -62,6 +62,7 @@ export class HomeService {
       .select({
         id: schema.transactions.id,
         amount: schema.transactions.amount,
+        transactionType: schema.transactions.transactionType,
         date: schema.transactions.date,
       })
       .from(schema.transactions)
@@ -85,9 +86,9 @@ export class HomeService {
       const existing = totalPerDay.find(d => d.date.getTime() === date.getTime());
 
       if (existing) {
-        existing.amount += trx.amount;
-      } else {
-        totalPerDay.push({ date, amount: trx.amount });
+        if (trx.transactionType === 2) { // Only sum expenses
+          existing.amount += trx.amount;
+        }
       }
     }
 
