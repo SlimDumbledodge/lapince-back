@@ -146,10 +146,31 @@ export class BudgetService {
       throw new NotFoundException('Budget not found');
     }
 
+    // TODO : Check if the recurring frequency is valid (e.g., not negative or zero), and same problem as create with recurringStartDate and frequency
+    const startDate = updateBudgetDto.recurringStartDate ? dayjs(updateBudgetDto.recurringStartDate) : undefined;
+    const today = dayjs();
+
+    let adjustedDate = startDate;
+    let actualAmount = budget.actualAmount;
+    if (adjustedDate) {
+      while (adjustedDate.add(updateBudgetDto.recurringFrequency || budget.recurringFrequency || 30, 'day').isBefore(today) || adjustedDate.add(updateBudgetDto.recurringFrequency || budget.recurringFrequency || 30, 'day').isSame(today)) {
+        adjustedDate = adjustedDate.add(updateBudgetDto.recurringFrequency || budget.recurringFrequency || 30, 'day');
+      }
+
+      const totalSinceStart = await this.transactionsService.findAllByCategoryId(budget.categoryId, userId, adjustedDate.toDate());
+
+      actualAmount = totalSinceStart.reduce((sum, transaction) => {
+        return sum + (transaction.transactionType === 1 ? -transaction.amount : transaction.amount);
+      }, 0);
+    }
+
     const result = await this.db
      .update(schema.budgets)
      .set({
       totalAmount: updateBudgetDto.totalAmount,
+      actualAmount,
+      lastResetDate: adjustedDate ? adjustedDate.toISOString() : budget.lastResetDate,
+      recurringStartDate: adjustedDate?.toISOString(),
       recurringFrequency: updateBudgetDto.recurringFrequency,
       updatedAt: new Date(),
      })
