@@ -323,7 +323,7 @@ export class TransactionsService {
 
       // Get the amount diff and transaction type
       const amountDiff = updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0;
-      const amountType = amountDiff > 0 ? 1 : 2;
+      const amountType = amountDiff > 0 ? 2 : 1;
 
       // Verify and update the budget
       if (updateTransactionDto.amount && (!updateTransactionDto.categoryId || (updateTransactionDto.categoryId === transaction.categoryId))) { // If if the same category       
