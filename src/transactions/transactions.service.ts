@@ -54,11 +54,11 @@ export class TransactionsService {
       const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
 
       // create the transaction
-      const result = await tx.insert(schema.transactions).values({
+      const result: schema.Transaction[] = await tx.insert(schema.transactions).values({
         ...createTransactionDto,
         date: new Date(createTransactionDto.date),
-        reccuringStartDate: createTransactionDto.recurringStartDate ? new Date(createTransactionDto.recurringStartDate) : null,
-        reccuringEndDate: createTransactionDto.recurringEndDate ? new Date(createTransactionDto.recurringEndDate) : null,
+        recurringStartDate: createTransactionDto.recurringStartDate ? new Date(createTransactionDto.recurringStartDate) : null,
+        recurringEndDate: createTransactionDto.recurringEndDate ? new Date(createTransactionDto.recurringEndDate) : null,
         userAccountId: userAccount.id,
         createdAt: new Date(),
       }).returning();
@@ -228,7 +228,7 @@ export class TransactionsService {
    * @param startDate 
    * @returns 
    */
-  async findAllByCategoryId(categoryId: string, userId: string, startDate?: Date): Promise<schema.Transaction[]> {
+  async findAllByCategoryId(categoryId: string, userId: string, startDate?: Date) {
     const userAccount = await this.userAccountService.findOneByUserId(userId);
 
     if (!userAccount) {

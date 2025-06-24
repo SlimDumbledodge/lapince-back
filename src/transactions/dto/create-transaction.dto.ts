@@ -11,8 +11,8 @@ export const CreateTransactionSchema = z.object({
   categoryId: z.string().uuid(),
   isRecurring: z.boolean().optional(),
   recurringFrequency: z.number().optional().nullable(),
-  recurringStartDate: z.string().date().optional().nullable(),
-  recurringEndDate: z.string().date().optional().nullable(),
+  recurringStartDate: z.string().datetime().or(z.string().date()).optional().nullable(),
+  recurringEndDate: z.string().datetime().or(z.string().date()).optional().nullable(),
 }).refine((data) => {
   // Ensure that if isRecurring is true, recurringFrequency is provided
   if (data.isRecurring) {
