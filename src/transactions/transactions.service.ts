@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, forwardRef, BadRequestException } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -414,9 +414,10 @@ export class TransactionsService {
    * Delete a transaction
    * @param id 
    * @param userId
+   * @param removeChildren - If true, remove all child transactions of a recurring transaction
    * @returns 
    */
-  async remove(id: string, userId: string): Promise<void> {
+  async remove(id: string, userId: string, removeChildren: boolean): Promise<{ message: string  }> {
     // Get the user account
     const userAccount = await this.userAccountService.findOneByUserId(userId);
     if (!userAccount) {
@@ -429,6 +430,66 @@ export class TransactionsService {
     }
 
     return await this.db.transaction(async (tx) => {
+
+      // If the transaction is recurring, verify if it is a parent or child transaction
+      if (transaction.isRecurring) {
+        if (transaction.recurringParentId) {
+          // If it is a child transaction, verify if it's the last child transaction
+          const recurringInfo = await tx
+            .select()
+            .from(schema.transactionRecurringInfo)
+            .where(eq(schema.transactionRecurringInfo.transactionParentId, transaction.recurringParentId))
+            .orderBy(desc(schema.transactionRecurringInfo.lastTransactionDate))
+            .limit(1)
+            .then((result) => result[0]);
+
+          if (recurringInfo && recurringInfo.lastTransactionId === transaction.id) {
+            // If it is the last child transaction, we need replace the lastChildId in the transaction info by the previous one
+            const previousChild = await tx
+              .select()
+              .from(schema.transactions)
+              .where(eq(schema.transactions.recurringParentId, transaction.recurringParentId))
+              .orderBy(desc(schema.transactions.date))
+              .limit(2)
+              .then((result) => {
+                if (result.length < 2) {
+                  return null; // No previous child transaction
+                }
+                return result[1]; // Return the second last transaction
+              });
+
+            if (previousChild) {
+              await tx
+                .update(schema.transactionRecurringInfo)
+                .set({ lastTransactionId: previousChild.id })
+                .where(eq(schema.transactionRecurringInfo.id, recurringInfo.id));
+            } else {
+              // If there is no previous child transaction, last transaction is the parent transaction
+              await tx
+                .update(schema.transactionRecurringInfo)
+                .set({ lastTransactionId: transaction.recurringParentId })
+                .where(eq(schema.transactionRecurringInfo.id, recurringInfo.id));
+            }
+          }
+        } else {
+          // If it is a parent transaction, we need to stop the recurring transaction
+          throw new BadRequestException('Cannot delete a parent transaction of a recurring transaction directly. Please stop the recurring transaction first !');
+        }
+      }
+
+      // If removeChildren is true, we need to remove all child transactions of the recurring transaction
+      if (removeChildren && !transaction.recurringParentId) {
+        await tx
+          .delete(schema.transactions)
+          .where(eq(schema.transactions.recurringParentId, id));
+      } else {
+        // make the recurringParentId null at child transactions
+        await tx
+          .update(schema.transactions)
+          .set({ recurringParentId: null, isOrphaned: true, updatedAt: new Date() })
+          .where(eq(schema.transactions.recurringParentId, id));
+      }
+
       // Delete the transaction
       await tx
         .delete(schema.transactions)
@@ -446,8 +507,7 @@ export class TransactionsService {
       // Update the total amount of the user account
       await this.userAccountService.updateTotalAmount(userId, 1, transaction.amount);
 
-      // verify if the transaction is recurring
-      // TODO : Remove All Child ??? Remove the recurring System ???
+      return {message: 'Transaction removed successfully'};
     })
   }
 
@@ -470,77 +530,103 @@ export class TransactionsService {
     if (!transaction.recurringParentId) {
       // If recurringParentId is null, it means this is a parent transaction
       // We need to find list child transactions and cancel them
-      const lastChild = await this.db
-        .select()
-        .from(schema.transactionRecurringInfo)
-        .where(eq(schema.transactionRecurringInfo.transactionParentId, transactionId))
-        .orderBy(desc(schema.transactionRecurringInfo.lastTransactionDate))
-        .limit(1)
-        .then((result) => result[0]);
-      
-      if (!lastChild) {
-        throw new NotFoundException('No child transactions found for this parent transaction'); 
-      }
 
-      await this.recurringTransactionService.cancelRecurringTransaction(lastChild.lastTransactionId);
+      return await this.db.transaction(async (tx) => {
+        const lastChild = await tx
+          .select()
+          .from(schema.transactionRecurringInfo)
+          .where(eq(schema.transactionRecurringInfo.transactionParentId, transactionId))
+          .orderBy(desc(schema.transactionRecurringInfo.lastTransactionDate))
+          .limit(1)
+          .then((result) => result[0]);
+        
+        if (!lastChild) {
+          throw new NotFoundException('No child transactions found for this parent transaction'); 
+        }
 
-      // Remove the recurring info from the database
-      await this.db.delete(schema.transactionRecurringInfo)
-        .where(eq(schema.transactionRecurringInfo.transactionParentId, transactionId));
+        await this.recurringTransactionService.cancelRecurringTransaction(lastChild.lastTransactionId);
 
-      // Make the parent transaction not recurring
-      await this.db.update(schema.transactions)
-        .set({
-          isRecurring: false,
-          recurringFrequency: null,
-          recurringEndDate: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.transactions.id, transactionId));
+        // Remove the recurring info from the database
+        await tx.delete(schema.transactionRecurringInfo)
+          .where(eq(schema.transactionRecurringInfo.transactionParentId, transactionId));
 
-      return {message: 'Recurring transaction stopped successfully'};
+        // Make the parent transaction not recurring
+        await tx.update(schema.transactions)
+          .set({
+            isRecurring: false,
+            recurringFrequency: null,
+            recurringEndDate: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.transactions.id, transactionId));
+
+        // Make child transactions not recurring
+        await tx.update(schema.transactions)
+          .set({
+            isRecurring: false,
+            recurringFrequency: null,
+            recurringEndDate: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.transactions.recurringParentId, transactionId));
+
+        return {message: 'Recurring transaction stopped successfully'};
+      });
     } else {
       // If recurringParentId is not null, it means this is a child transaction
       // We need to cancel the last child transaction of the parent transaction
+
       const parentTransaction = await this.findOne(transaction.recurringParentId, userId);
 
-      if (!parentTransaction) {
-        throw new NotFoundException('Parent transaction not found');
-      }
+      return await this.db.transaction(async (tx) => {
+        if (!parentTransaction) {
+          throw new NotFoundException('Parent transaction not found');
+        }
 
-      if (!parentTransaction.isRecurring) {
-        throw new NotFoundException('Parent transaction is not a recurring transaction');
-      }
+        if (!parentTransaction.isRecurring) {
+          throw new NotFoundException('Parent transaction is not a recurring transaction');
+        }
 
-      const lastChild = await this.db
-        .select()
-        .from(schema.transactionRecurringInfo)
-        .where(eq(schema.transactionRecurringInfo.transactionParentId, parentTransaction.id))
-        .orderBy(desc(schema.transactionRecurringInfo.lastTransactionDate))
-        .limit(1)
-        .then((result) => result[0]);
-      
-      if (!lastChild) {
-        throw new NotFoundException('No child transactions found for this parent transaction'); 
-      }
+        const lastChild = await tx
+          .select()
+          .from(schema.transactionRecurringInfo)
+          .where(eq(schema.transactionRecurringInfo.transactionParentId, parentTransaction.id))
+          .orderBy(desc(schema.transactionRecurringInfo.lastTransactionDate))
+          .limit(1)
+          .then((result) => result[0]);
+        
+        if (!lastChild) {
+          throw new NotFoundException('No child transactions found for this parent transaction'); 
+        }
 
-      await this.recurringTransactionService.cancelRecurringTransaction(lastChild.lastTransactionId);
+        await this.recurringTransactionService.cancelRecurringTransaction(lastChild.lastTransactionId);
 
-      // Remove the recurring info from the database
-      await this.db.delete(schema.transactionRecurringInfo)
-        .where(eq(schema.transactionRecurringInfo.transactionParentId, parentTransaction.id));
+        // Remove the recurring info from the database
+        await tx.delete(schema.transactionRecurringInfo)
+          .where(eq(schema.transactionRecurringInfo.transactionParentId, parentTransaction.id));
 
-      // Make the parent transaction not recurring
-      await this.db.update(schema.transactions)
-        .set({
-          isRecurring: false,
-          recurringFrequency: null,
-          recurringEndDate: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.transactions.id, parentTransaction.id));
+        // Make the parent transaction not recurring
+        await tx.update(schema.transactions)
+          .set({
+            isRecurring: false,
+            recurringFrequency: null,
+            recurringEndDate: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.transactions.id, parentTransaction.id));
+
+        // Make the childs transaction not recurring
+        await tx.update(schema.transactions)
+          .set({
+            isRecurring: false,
+            recurringFrequency: null,
+            recurringEndDate: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.transactions.recurringParentId, parentTransaction.id));
 
       return {message: 'Recurring transaction stopped successfully'};
+      });
     }
   }
 }

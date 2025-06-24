@@ -67,8 +67,12 @@ export class TransactionsController {
    * @returns 
    */
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
-    return this.transactionsService.remove(id, user.id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string, 
+    @User() user: UserEntity,
+    @Query('removeChildren') removeChildren: boolean = false,
+  ) {
+    return this.transactionsService.remove(id, user.id, removeChildren);
   }
 
   /**

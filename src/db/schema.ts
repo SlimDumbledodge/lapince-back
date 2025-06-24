@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, varchar, uuid, boolean, integer, real, json, pgEnum, interval, uniqueIndex, index, date } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import { is, sql } from 'drizzle-orm';
 
 /**
  * User table
@@ -74,6 +74,8 @@ export const transactions = pgTable('transactions', {
   recurringEndDate: timestamp('recurring_end_date'),
   recurringParentId: uuid('recurring_parent_id').references(() => transactions.id), // For reccuring transactions, link to the parent transaction
   metadata: json('metadata').$type<Record<string, any>>().default({}).notNull(), // Store additional data like payment method, location, etc.
+  isDeleted: boolean('is_deleted').notNull().default(false), // Soft delete
+  isOrphaned: boolean('is_orphaned').notNull().default(false), // For transactions that are not linked to any recurrency but with recurrency indicator
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({
