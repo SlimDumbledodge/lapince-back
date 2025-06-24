@@ -62,4 +62,19 @@ export class RecurringTransactionService {
     const delay = nextTransaction.getTime() - now.getTime();
     return delay > 0 ? delay : 0;
   }
+
+  async cancelRecurringTransaction(transactionId: string) {
+    this.logger.debug(`Cancelling recurring transaction for ID: ${transactionId}`);
+    
+    // Remove the job from the queue if it exists
+    const jobId = `transaction-${transactionId}`;
+    const job = await this.queue.getJob(jobId);
+    
+    if (job) {
+      await job.remove();
+      this.logger.debug(`Recurring transaction job ${jobId} removed from the queue.`);
+    } else {
+      this.logger.debug(`No recurring transaction job found for ID: ${transactionId}`);
+    }
+  }
 }

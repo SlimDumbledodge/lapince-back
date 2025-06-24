@@ -70,4 +70,16 @@ export class TransactionsController {
   remove(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
     return this.transactionsService.remove(id, user.id);
   }
+
+  /**
+   * Stop a recurring transaction
+   * @param id
+   */
+  @Delete('recurring/stop/:id')
+  stopRecurringTransaction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @User() user: UserEntity,
+  ) {
+    return this.transactionsService.stopRecurringTransaction(id, user.id);
+  }
 }
