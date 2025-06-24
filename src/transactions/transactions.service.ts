@@ -176,7 +176,7 @@ export class TransactionsService {
         ...parentTransaction,
         id: undefined, // Generate a new ID
         description: description,
-        reccuringParentId: parentTransaction.id, // Set the parent ID
+        recurringParentId: parentTransaction.id, // Set the parent ID
         date: new Date(),
         createdAt: new Date(),
       }).returning();
@@ -345,6 +345,10 @@ export class TransactionsService {
       if (!category) {
         throw new NotFoundException('Category not found');
       }
+    }
+
+    if (transaction.recurringParentId && (updateTransactionDto.isRecurring || updateTransactionDto.recurringFrequency || updateTransactionDto.recurringEndDate)) {
+      throw new NotFoundException('Cannot add a recurrency on a child transaction !');
     }
 
     return await this.db.transaction(async (tx) => {
