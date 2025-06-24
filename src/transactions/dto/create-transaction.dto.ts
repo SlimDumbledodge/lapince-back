@@ -11,7 +11,6 @@ export const CreateTransactionSchema = z.object({
   categoryId: z.string().uuid(),
   isRecurring: z.boolean().optional(),
   recurringFrequency: z.number().optional().nullable(),
-  recurringStartDate: z.string().datetime().or(z.string().date()).optional().nullable(),
   recurringEndDate: z.string().datetime().or(z.string().date()).optional().nullable(),
 }).refine((data) => {
   // Ensure that if isRecurring is true, recurringFrequency is provided
@@ -19,17 +18,14 @@ export const CreateTransactionSchema = z.object({
     if (!data.recurringFrequency || data.recurringFrequency <= 0) {
       return false;
     }
-    if (!data.recurringStartDate) {
-      return false;
-    }
   }
   return true;
 }, {
-  message: 'If the transaction is recurring, recurringFrequency and recurringStartDate must be provided.',
+  message: 'If the transaction is recurring, recurringFrequency and date must be provided.',
 }).refine((data) => {
   // Ensure that if recurringEndDate is provided, it is after recurringStartDate
-  if (data.recurringStartDate && data.recurringEndDate) {
-    return new Date(data.recurringStartDate) < new Date(data.recurringEndDate);
+  if (data.date && data.recurringEndDate) {
+    return new Date(data.date) < new Date(data.recurringEndDate);
   }
   return true;
 }, {

@@ -146,7 +146,6 @@ export class BudgetService {
       throw new NotFoundException('Budget not found');
     }
 
-    // TODO : Check if the recurring frequency is valid (e.g., not negative or zero), and same problem as create with recurringStartDate and frequency
     const startDate = updateBudgetDto.recurringStartDate ? dayjs(updateBudgetDto.recurringStartDate) : undefined;
     const today = dayjs();
 

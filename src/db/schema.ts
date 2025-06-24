@@ -69,7 +69,7 @@ export const transactions = pgTable('transactions', {
   description: text('description'),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
   isRecurring: boolean('is_recurring').notNull().default(false),
-  recurringFrequency: integer('recurring_frequency').default(30),
+  recurringFrequency: integer('recurring_frequency').default(30), // enum with values: weekly, two-weekly, monthly, tri-monthly,
   recurringStartDate: timestamp('recurring_start_date'),
   recurringEndDate: timestamp('recurring_end_date'),
   recurringParentId: uuid('recurring_parent_id').references(() => transactions.id), // For reccuring transactions, link to the parent transaction
