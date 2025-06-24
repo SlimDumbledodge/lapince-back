@@ -39,4 +39,13 @@ export class BudgetResetService {
     const delay = nextReset.getTime() - now.getTime();
     return delay > 0 ? delay : 0;
   }
+
+  async removeBudgetResetJob(budgetId: string) {
+    const jobId = `budget-${budgetId}`;
+    const job = await this.queue.getJob(jobId);
+    
+    if (job) {
+      await job.remove();
+    }
+  }
 }

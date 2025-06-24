@@ -164,20 +164,31 @@ export class BudgetService {
       }, 0);
     }
 
-    const result = await this.db
-     .update(schema.budgets)
-     .set({
-      totalAmount: updateBudgetDto.totalAmount,
-      actualAmount,
-      lastResetDate: adjustedDate ? adjustedDate.toISOString() : budget.lastResetDate,
-      recurringStartDate: adjustedDate?.toISOString(),
-      recurringFrequency: updateBudgetDto.recurringFrequency,
-      updatedAt: new Date(),
-     })
-     .where(eq(schema.budgets.id, id))
-     .returning();
+    return this.db.transaction(async (tx) => {
+      const result = await tx
+      .update(schema.budgets)
+      .set({
+        totalAmount: updateBudgetDto.totalAmount,
+        actualAmount,
+        lastResetDate: adjustedDate ? adjustedDate.toISOString() : budget.lastResetDate,
+        recurringStartDate: adjustedDate?.toISOString(),
+        recurringFrequency: updateBudgetDto.recurringFrequency,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.budgets.id, id))
+      .returning();
 
-    return result[0];
+      // Update the budget reset job if the recurring frequency or recurringStartDate has changed
+      if (updateBudgetDto.recurringFrequency && budget.recurringFrequency !== updateBudgetDto.recurringFrequency) {
+        await this.budgetResetService.removeBudgetResetJob(id);
+        await this.budgetResetService.scheduleBudgetReset(result[0]);
+      } else if (adjustedDate && budget.recurringStartDate !== adjustedDate.toISOString()) {
+        await this.budgetResetService.removeBudgetResetJob(id);
+        await this.budgetResetService.scheduleBudgetReset(result[0]);
+      }
+
+      return result[0];
+    });
   }
 
   /**
@@ -308,9 +319,14 @@ export class BudgetService {
    * @returns void
    */
   async remove(id: string, userId: string): Promise<void> {
-    return this.db
-      .delete(schema.budgets)
-      .where(and(eq(schema.budgets.id, id), eq(schema.budgets.userId, userId)))
-      .then(() => undefined);
+    return this.db.transaction(async (tx) => {
+      await tx
+        .delete(schema.budgets)
+        .where(and(eq(schema.budgets.id, id), eq(schema.budgets.userId, userId)))
+        .then(() => undefined);
+
+      // Remove the budget from the budget reset queue if it exists
+      await this.budgetResetService.removeBudgetResetJob(id);
+    });
   }
 }
