@@ -1,15 +1,19 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { CreateUserAccountDto } from './dto/create-user-account.dto';
 import { UpdateUserAccountDto } from './dto/update-user-account.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
 import { eq } from 'drizzle-orm';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class UserAccountService {
+  private readonly logger = new Logger(UserAccountService.name);
+
   constructor(
     @Inject(DrizzleAsyncProvider) private readonly db: NodePgDatabase<typeof schema>,
+    @Inject(NotificationsService) private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -80,7 +84,7 @@ export class UserAccountService {
     const userAccount = await this.findOneByUserId(userId)
 
     if (!userAccount) {
-      throw new Error('User account not found');
+      throw new NotFoundException('User account not found');
     }
 
     const totalAmount = userAccount.amount + (type === 1 ? amount : -amount)
@@ -89,7 +93,17 @@ export class UserAccountService {
       updatedAt: new Date(),
     }).where(eq(schema.userAccounts.userId, userId)).returning()
 
-    // TODO : if totalAmount < 0, send a notification to the user
+    if (result[0].amount < 0) {
+      try {
+        await this.notificationsService.create({
+          level: 'warning',
+          type: 'reminder',
+          message: `Your account balance is negative: ${result[0].amount} EUR.`,
+        }, userId);
+      } catch (error) {
+        this.logger.error('Error sending notification:', error);
+      }
+    }
 
     return result[0];
   }
