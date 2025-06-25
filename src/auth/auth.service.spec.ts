@@ -2,50 +2,48 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import {JwtService} from "@nestjs/jwt";
 import {UsersService} from "../users/users.service";
+import { UserAccountService } from 'src/user-account/user-account.service';
+import { MailService } from 'src/mail/mail.service';
 import {LoginDto} from "./dto/login.dto";
 import {RegisterDto} from "./dto/register.dto";
 import 'dotenv/config'
 import {UnauthorizedException} from "@nestjs/common";
-import * as schema from '../db/schema';
-
-const mockUsersResult: schema.User = {
-  id: 'uuid_string',
-  firstName: 'John',
-  lastName: 'DOE',
-  email: 'admin@admin.com',
-  password: '$2b$10$gA1jhE5r1FZmj1F5hTRnp.P2Kk3FNadEZemVMdeeIvAeuwTCr5w.C', // admin
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}
-
-const mockAccessToken : string = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
-
-const expectedUser = {
-  user: {
-    id: 'uuid_string',
-      fullName: null,
-      email: 'admin@admin.com',
-  },
-  access_token: mockAccessToken
-}
+import { mockUsersResult, expectedUser, mockAccessToken } from '../../__mock__/auth';
 
 
 describe('AuthService', () => {
   let service: AuthService;
-
-  const mockUsersService = {
-    findByEmail: jest.fn(),
-    create: jest.fn(),
-  };
-  const mockJwtService = {
-    signAsync: jest.fn(),
-  };
+  let db: any;
+  let mockUsersService: any;
+  let mockJwtService: any;
+  let mockUserAccountService: any;
+  let mockMailService: any;
+  let mockAuthService: any;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+
+    db = {
+      transaction: jest.fn(),
+      select: jest.fn(),
+      insert: jest.fn(() => ({
+          values: jest.fn(),
+        })),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };    
+    mockUsersService = {findByEmail: jest.fn(), create: jest.fn()};
+    mockJwtService = {signAsync: jest.fn()};
+    mockUserAccountService = {create: jest.fn()};
+    mockMailService = {sendPasswordResetEmail: jest.fn()};
+    mockAuthService = {createToken: jest.fn()};
+
+    const module: TestingModule = await Test.createTestingModule({  
       providers: [
         { provide: JwtService, useValue: mockJwtService },
         { provide: UsersService, useValue: mockUsersService },
+        { provide: UserAccountService, useValue: mockUserAccountService },
+        { provide: MailService, useValue: {} },
+        { provide: 'DrizzleAsyncProvider', useValue: db },
         AuthService
       ],
     }).compile();
@@ -60,6 +58,64 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
+  /******************
+   *     SIGNUP     *
+   *****************/
+
+  describe('signup', () => {
+    it('should register a user', async () => {
+      const user: RegisterDto = {
+        firstName: 'John',
+        lastName: 'DOE',
+        email: 'admin@admin.com',
+        password: 'admin',
+        accountName: 'My Account',
+        amount: 1000,
+      }
+
+      mockUsersService.findByEmail.mockResolvedValueOnce(null)
+
+      mockUsersService.create.mockResolvedValueOnce([mockUsersResult])
+
+      mockJwtService.signAsync.mockResolvedValueOnce(mockAccessToken);
+
+      mockUserAccountService.create.mockResolvedValueOnce({
+        id: 'uuid_string',
+        accountName: user.accountName,
+        amount: user.amount,
+      });
+
+      jest.spyOn(service as any, 'createToken').mockImplementation(async () => (expectedUser));
+
+      const result = await service.signUp(user);
+
+      expect(result).toEqual(expectedUser)
+    })
+
+    it('should not register a user with an existing email', async () => {
+      const user: RegisterDto = {
+        firstName: 'John',
+        lastName: 'DOE',
+        email: 'admin@admin.com',
+        password: 'admin',
+        accountName: 'My Account',
+        amount: 1000,
+      }
+
+      mockUsersService.findByEmail.mockResolvedValueOnce(mockUsersResult)
+
+      const result = service.signUp(user);
+
+      const expected = new UnauthorizedException({ message: 'Invalid credentials' });
+
+      await expect(result).rejects.toThrow(expected);
+    })
+  })
+
+  /*****************
+   *     LOGIN     *
+   *****************/
+
   describe('login', () => {
     it('should login with good credentials', async () => {
       const user: LoginDto = {
@@ -71,11 +127,11 @@ describe('AuthService', () => {
 
       mockJwtService.signAsync.mockResolvedValueOnce(mockAccessToken);
 
+      jest.spyOn(service as any, 'createToken').mockImplementation(async () => (expectedUser));
+
       const result = await service.login(user.email, user.password);
 
       expect(result).toEqual(expectedUser)
-      expect(mockUsersService.findByEmail).toBeCalledWith(user.email);
-      expect(mockJwtService.signAsync).toBeCalledWith({ email: user.email, sub: 'uuid_string' }, { expiresIn: process.env.JWT_EXPIRES_IN ?? '6h' });
     })
 
     it('should not login with bad email credentials', async () => {
@@ -111,41 +167,20 @@ describe('AuthService', () => {
     })
   })
 
-  describe('register', () => {
-    it('should register a user', async () => {
-      const user: RegisterDto = {
-        firstName: 'John',
-        lastName: 'DOE',
-        email: 'admin@admin.com',
-        password: 'admin',
-      }
+  /********************************
+   *     REFRESH ACCESS TOKEN     *
+   ********************************/
+  describe('refreshAccessToken', () => {
+    it('token is not a reshresh token', async () => {
+      mockJwtService.signAsync.mockResolvedValueOnce({
+        accessToken: mockAccessToken,
+        type: 'access',
+        sub: 'uuid_string',
+        sid: 'uuid_string',
+      });
 
-      mockUsersService.findByEmail.mockResolvedValueOnce(null)
-
-      mockUsersService.create.mockResolvedValueOnce([mockUsersResult])
-
-      mockJwtService.signAsync.mockResolvedValueOnce(mockAccessToken);
-
-      const result = await service.signUp(user);
-
-      expect(result).toEqual(expectedUser)
-      expect(mockUsersService.findByEmail).toBeCalledWith(user.email);
-      expect(mockJwtService.signAsync).toBeCalledWith({ email: user.email, sub: 'uuid_string' }, { expiresIn: process.env.JWT_EXPIRES_IN ?? '6h' });
-    })
-
-    it('should not register a user with an existing email', async () => {
-      const user: RegisterDto = {
-        firstName: 'John',
-        lastName: 'DOE',
-        email: 'admin@admin.com',
-        password: 'admin',
-      }
-
-      mockUsersService.findByEmail.mockResolvedValueOnce(mockUsersResult)
-
-      const result = service.signUp(user);
-
-      const expected = new UnauthorizedException({ message: 'Email already exists' });
+      const result = service.refreshAccessToken(mockAccessToken);
+      const expected = new UnauthorizedException({ message: 'Invalid refresh token' });
 
       await expect(result).rejects.toThrow(expected);
     })

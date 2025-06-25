@@ -2,13 +2,21 @@ import { Injectable } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import * as schema from "../../../db/schema"
+import { convertFrequencyToDayjsPeriod } from "src/common/convert/convert-frequency";
+import dayjs, { ManipulateType } from "dayjs";
 
 @Injectable()
 export class BudgetResetService {
   constructor(@InjectQueue('budgetReset') private queue: Queue) {}
 
   async scheduleBudgetReset(budget: schema.Budget) {
-    const delay = this.calculateNextResetDelay(budget.lastResetDate, budget.reccuringFrequency ?? 30);
+    if (!budget.recurringFrequency) {
+      throw new Error("Budget does not have a recurring frequency set.");
+    }
+
+    const { value: frequencyValue, unit: frequencyUnit } = convertFrequencyToDayjsPeriod(budget.recurringFrequency);
+
+    const delay = this.calculateNextResetDelay(budget.lastResetDate, { value: frequencyValue, unit: frequencyUnit });
 
     await this.queue.add(
       'reset-budget',
@@ -27,16 +35,29 @@ export class BudgetResetService {
     );
   }
 
-  private calculateNextResetDelay(lastResetDate: string | Date, frequencyInDays: number): number {
-    const now = new Date();
-    const last = new Date(lastResetDate);
-    
-    const nextReset = new Date(last.getTime() + frequencyInDays * 24 * 60 * 60 * 1000);
-  
+  private calculateNextResetDelay(lastResetDate: string | Date, frequencyInDays: { value: number; unit: ManipulateType }): number {
+    const now = dayjs();
+    const last = dayjs(lastResetDate);
+
+    const nextReset = last.add(frequencyInDays.value, frequencyInDays.unit);
+    if (nextReset.isBefore(now)) {
+      // If the next reset is in the past, we need to schedule it for the next period
+      nextReset.add(frequencyInDays.value, frequencyInDays.unit);
+    }
+
     // Set the time to midnight
-    nextReset.setHours(0, 0, 0, 0);
-  
-    const delay = nextReset.getTime() - now.getTime();
+    nextReset.startOf('day');
+
+    const delay = nextReset.diff(now, 'milliseconds');
     return delay > 0 ? delay : 0;
+  }
+
+  async removeBudgetResetJob(budgetId: string) {
+    const jobId = `budget-${budgetId}`;
+    const job = await this.queue.getJob(jobId);
+    
+    if (job) {
+      await job.remove();
+    }
   }
 }

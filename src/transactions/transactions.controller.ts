@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseBoolPipe, ParseUUIDPipe, Query } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto, CreateTransactionSchema } from './dto/create-transaction.dto';
 import { UpdateTransactionDto, UpdateTransactionSchema } from './dto/update-transaction.dto';
@@ -57,8 +57,9 @@ export class TransactionsController {
     @Param('id', ParseUUIDPipe) id: string, 
     @Body(new ZodValidationPipe(UpdateTransactionSchema)) updateTransactionDto: UpdateTransactionDto,
     @User() user: UserEntity,
+    @Query('updateNextChilds', ParseBoolPipe) updateNextChilds: boolean = false,
   ) {
-    return this.transactionsService.update(id, updateTransactionDto, user.id);
+    return this.transactionsService.update(id, updateTransactionDto, user.id, updateNextChilds);
   }
 
   /**
@@ -67,7 +68,23 @@ export class TransactionsController {
    * @returns 
    */
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
-    return this.transactionsService.remove(id, user.id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string, 
+    @User() user: UserEntity,
+    @Query('removeChildren') removeChildren: boolean = false,
+  ) {
+    return this.transactionsService.remove(id, user.id, removeChildren);
+  }
+
+  /**
+   * Stop a recurring transaction
+   * @param id
+   */
+  @Delete('recurring/stop/:id')
+  stopRecurringTransaction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @User() user: UserEntity,
+  ) {
+    return this.transactionsService.stopRecurringTransaction(id, user.id);
   }
 }

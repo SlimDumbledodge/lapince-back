@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, UsePipes, ParseUUIDPipe, Query, Delete } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
-import { UpdateNotificationDto, UpdateNotificationSchema } from './dto/update-notification.dto';
+import { UpdateNotificationDto, UpdateNotificationSchema, UpdateMultipleNotificationsDto, UpdateMultipleNotificationsSchema } from './dto/update-notification.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { User, UserEntity } from '../decorator/user.decorator';
 
@@ -10,7 +10,6 @@ export class NotificationsController {
 
   /**
    * Get all notifications for the current user
-   * @param req
    * @param isRead
    * @param page
    * @param limit
@@ -23,13 +22,12 @@ export class NotificationsController {
     @Query('page') page: number = 0,
     @Query('limit') limit: number = 10
   ) {
-    return this.notificationsService.findAll(user.id, isRead, limit, page);
+    return this.notificationsService.findAll(user.id, isRead, +limit, +page);
   }
 
   /**
    * Get a notification by id
    * @param id 
-   * @param req
    * @returns 
    */
   @Get(':id')
@@ -41,7 +39,6 @@ export class NotificationsController {
    * Update a notification
    * @param id 
    * @param updateNotificationDto 
-   * @param req
    * @returns 
    */
   @Patch(':id')
@@ -54,9 +51,21 @@ export class NotificationsController {
   }
 
   /**
+   * Update multiple notifications
+   * @param updateNotificationDto
+   * @returns
+   */
+  @Patch()
+  updateMultiple(
+    @Body(new ZodValidationPipe(UpdateMultipleNotificationsSchema)) updateNotificationDto: UpdateMultipleNotificationsDto,
+    @User() user: UserEntity,
+  ) {
+    return this.notificationsService.updateMultiple(updateNotificationDto, user.id);
+  }
+
+  /**
    * Delete a notification
    * @param id
-   * @param req
    * @returns
    */
   @Delete(':id')

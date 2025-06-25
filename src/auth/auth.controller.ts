@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UsePipes, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UsePipes, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, LoginDtoSchema } from './dto/login.dto';
 import { RefreshDtoSchema, RefreshDto } from './dto/refresh.dto';
@@ -7,6 +7,7 @@ import { ForgotPasswordDto, forgotPasswordSchema } from '../auth/dto/forgot-pass
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { RegisterDtoSchema, RegisterDto } from './dto/register.dto';
 import { ResetPasswordSchema, ResetPasswordDto } from './dto/reset-password.dto';
+import { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -18,8 +19,11 @@ export class AuthController {
    */
   @Post('signup')
   @UsePipes(new ZodValidationPipe(RegisterDtoSchema))
-  register(@Body() registerDto: RegisterDto) {
-    return this.authService.signUp(registerDto);
+  register(
+    @Body() registerDto: RegisterDto,
+    @Req() request: Request,
+  ) {
+    return this.authService.signUp(registerDto, request.ip, request.headers['user-agent']);
   }
 
   /**
@@ -29,8 +33,11 @@ export class AuthController {
   @Post('signin')
   @UsePipes(new ZodValidationPipe(LoginDtoSchema))
   @HttpCode(HttpStatus.OK)
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto.email, loginDto.password);
+  login(
+    @Body() loginDto: LoginDto,
+    @Req() request: Request,
+  ) {
+    return this.authService.login(loginDto.email, loginDto.password, request.ip, request.headers['user-agent']);
   }
 
   /**
@@ -40,9 +47,10 @@ export class AuthController {
   @Post('token/refresh')
   @UsePipes(new ZodValidationPipe(RefreshDtoSchema))
   @HttpCode(HttpStatus.OK)
-  refreshToken(@Body() body: RefreshDto) {
-    return this.authService.refreshAccessToken(body.refreshToken);
+  refreshToken(@Body() body: RefreshDto, @Req() request: Request) {
+    return this.authService.refreshAccessToken(body.refreshToken, request.ip, request.headers['user-agent']);
   }
+
 
   /**
    * Logout a user

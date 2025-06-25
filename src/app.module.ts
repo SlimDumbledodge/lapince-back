@@ -14,6 +14,10 @@ import { BudgetResetModule } from './lib/bullmq/budget-reset/budget-reset.module
 import { ScheduleModule } from '@nestjs/schedule';
 import { MailModule } from './mail/mail.module';
 import { HomeModule } from './home/home.module';
+import { SlackModule } from './slack/slack.module';
+import { BullBoardModule } from "@bull-board/nestjs";
+import { ExpressAdapter } from "@bull-board/express";
+import basicAuth from "express-basic-auth";
 
 @Module({
   imports: [
@@ -30,6 +34,14 @@ import { HomeModule } from './home/home.module';
         },
       }),
     }),
+    BullBoardModule.forRoot({
+      adapter: ExpressAdapter,
+      route: '/admin/queues',
+      middleware: basicAuth({
+        challenge: true,
+        users: { admin: "admin" },
+      }),
+    }),
     ScheduleModule.forRoot(),
     DrizzleModule,
     UsersModule,
@@ -42,6 +54,10 @@ import { HomeModule } from './home/home.module';
     BudgetResetModule,
     MailModule,
     HomeModule,
+    SlackModule.register({
+      enable: process.env.SLACK_ENABLED === 'true',
+      isGlobal: true,
+    }),
   ],
 })
 export class AppModule implements NestModule {
@@ -54,6 +70,7 @@ export class AppModule implements NestModule {
         { path: 'auth/token/refresh', method: RequestMethod.POST },
         { path: 'auth/forgot-password', method: RequestMethod.POST },
         { path: 'auth/reset-password', method: RequestMethod.POST },
+        { path: '/admin/queues', method: RequestMethod.ALL }, // Exclude Bull Board routes
       )
       .forRoutes({
         path: '*splat',

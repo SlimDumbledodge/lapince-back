@@ -6,14 +6,14 @@ import { UserAccountModule } from 'src/user-account/user-account.module';
 import { CategoriesModule } from 'src/categories/categories.module';
 import { BudgetModule } from 'src/budget/budget.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
-import { RecurringTransactionModule } from 'src/lib/bullmq/reccuring-transaction/reccuring-transaction.module';
+import { RecurringTransactionModule } from 'src/lib/bullmq/recurring-transaction/recurring-transaction.module';
 
 @Module({
   imports: [
     DrizzleModule, 
-    UserAccountModule, 
-    CategoriesModule, 
-    BudgetModule,
+    UserAccountModule,
+    CategoriesModule,
+    forwardRef(() => BudgetModule),
     NotificationsModule,
     forwardRef(() => RecurringTransactionModule),
   ],

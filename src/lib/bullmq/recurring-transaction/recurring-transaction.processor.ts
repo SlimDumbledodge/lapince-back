@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
 import { Inject } from "@nestjs/common";
 import * as schema from "../../../db/schema"
-import { RecurringTransactionService } from "./reccuring-transaction.service";
+import { RecurringTransactionService } from "./recurring-transaction.service";
 import { TransactionsService } from "src/transactions/transactions.service";
 
 @Processor('recurringTransaction')

@@ -4,34 +4,59 @@ import { categories } from "../schema";
 const categoriesData = [
   {
     name: 'Alimentation',
-    color: '#c1bcd1',
+    color: '#e17100',
     icon: 'Utensils',
   },
   {
     name: 'Transport',
-    color: '#d8a16a',
+    color: '#5ea500',
     icon: 'Car',
   },
   {
     name: 'Logement',
-    color: '#1a4fef',
+    color: '#0084d1',
     icon: 'House',
   },
   {
     name: 'Loisirs',
-    color: '#4ff262',
+    color: '#7f22fe',
     icon: 'Volleyball',
   },
   {
     name: 'Vêtements',
-    color: '#450b51',
+    color: '#ff2056',
     icon: 'Shirt',
   },
   {
     name: 'Santé',
-    color: '#999577',
+    color: '#45556c',
     icon: 'Heart',
   },
+  {
+    name: 'Autres',
+    color: '#7c86ff',
+    icon: 'QuestionMark',
+  },
+  {
+    name: 'Factures',
+    color: '#0092b8',
+    icon: 'FileText',
+  },
+  {
+    name: 'Éducation',
+    color: '#35530e',
+    icon: 'GraduationCap',
+  },
+  {
+    name: 'Voyages',
+    color: '#74d4ff',
+    icon: 'Plane',
+  },
+  {
+    name: 'Salaires',
+    color: '#fb2c36',
+    icon: 'Euro',
+  }
 ];
 
 export async function seedCategories(db: NodePgDatabase) : Promise<void> {
