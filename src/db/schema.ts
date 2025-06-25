@@ -125,13 +125,14 @@ export type NewCategory = typeof categories.$inferInsert;
 /**
  * Budget table
  */
+export const budgetFrequencies = pgEnum('budget_frequency', ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']);
 export const budgets = pgTable('budgets', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid('user_id').references(() => users.id).notNull(),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
   totalAmount: real('total_amount').notNull(),
   actualAmount: real('actual_amount').default(0).notNull(),
-  recurringFrequency: integer('recurring_frequency').default(30),
+  recurringFrequency: budgetFrequencies('recurring_frequency').notNull().default('monthly'), // integer('recurring_frequency').default(30),
   recurringStartDate: date('recurring_start_date').default(sql`now()`).notNull(),
   lastResetDate: date('last_reset_date').default(sql`now()`).notNull(),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
