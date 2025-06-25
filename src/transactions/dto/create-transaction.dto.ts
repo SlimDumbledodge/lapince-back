@@ -17,6 +17,7 @@ export const CreateTransactionSchema = z.object({
   recurringFrequency: z
     .union([budgetFrequency, z.number().int()])
     .optional()
+    .nullable()
     .transform((value) => {
       if (typeof value === 'number') {
         return getClosestFrequency(value);
