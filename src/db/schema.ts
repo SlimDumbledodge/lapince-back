@@ -1,5 +1,7 @@
-import { pgTable, text, timestamp, varchar, uuid, boolean, integer, real, json, pgEnum, interval, uniqueIndex, index, date } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, varchar, uuid, boolean, integer, real, json, pgEnum, interval, uniqueIndex, index, date, foreignKey } from 'drizzle-orm/pg-core';
 import { is, sql } from 'drizzle-orm';
+
+export const rawFrequency = pgEnum('raw_frequency', ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'])
 
 /**
  * User table
@@ -69,10 +71,10 @@ export const transactions = pgTable('transactions', {
   description: text('description'),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
   isRecurring: boolean('is_recurring').notNull().default(false),
-  recurringFrequency: integer('recurring_frequency').default(30), // enum with values: weekly, two-weekly, monthly, tri-monthly,
+  recurringFrequency: rawFrequency('recurring_frequency').default('monthly'),
   recurringStartDate: timestamp('recurring_start_date'),
   recurringEndDate: timestamp('recurring_end_date'),
-  recurringParentId: uuid('recurring_parent_id').references(() => transactions.id), // For reccuring transactions, link to the parent transaction
+  recurringParentId: uuid('recurring_parent_id'), // For reccuring transactions, link to the parent transaction
   metadata: json('metadata').$type<Record<string, any>>().default({}).notNull(), // Store additional data like payment method, location, etc.
   isDeleted: boolean('is_deleted').notNull().default(false), // Soft delete
   isOrphaned: boolean('is_orphaned').notNull().default(false), // For transactions that are not linked to any recurrency but with recurrency indicator
@@ -81,6 +83,11 @@ export const transactions = pgTable('transactions', {
 }, (t) => ({
   userAccountIdIdx: index('transaction_user_account_id_idx').on(t.userAccountId),
   categoryIdIdx: index('transaction_category_id_idx').on(t.categoryId),
+  parentReference: foreignKey({
+    columns: [t.recurringParentId],
+    foreignColumns: [t.id],
+    name: 'transaction_recurring_parent_fk',
+  })
 }));
 
 export type Transaction = typeof transactions.$inferSelect;
@@ -125,14 +132,13 @@ export type NewCategory = typeof categories.$inferInsert;
 /**
  * Budget table
  */
-export const budgetFrequencies = pgEnum('budget_frequency', ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']);
 export const budgets = pgTable('budgets', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid('user_id').references(() => users.id).notNull(),
   categoryId: uuid('category_id').references(() => categories.id).notNull(),
   totalAmount: real('total_amount').notNull(),
   actualAmount: real('actual_amount').default(0).notNull(),
-  recurringFrequency: budgetFrequencies('recurring_frequency').notNull().default('monthly'), // integer('recurring_frequency').default(30),
+  recurringFrequency: rawFrequency('recurring_frequency').notNull().default('monthly'),
   recurringStartDate: date('recurring_start_date').default(sql`now()`).notNull(),
   lastResetDate: date('last_reset_date').default(sql`now()`).notNull(),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
