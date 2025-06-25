@@ -28,8 +28,8 @@ export const UpdateBudgetSchema = z.object({
   }
   return true;
 }, {
-  message: "reccuringStartDate must be a valid ISO date string",
-  path: ["reccuringStartDate"],
+  message: "recurringStartDate must be a valid ISO date string",
+  path: ["recurringStartDate"],
 })
 .refine((data) => {
   if (data.recurringStartDate) {
