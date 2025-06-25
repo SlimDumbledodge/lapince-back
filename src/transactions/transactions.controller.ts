@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseBoolPipe, ParseUUIDPipe, Query } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto, CreateTransactionSchema } from './dto/create-transaction.dto';
 import { UpdateTransactionDto, UpdateTransactionSchema } from './dto/update-transaction.dto';
@@ -57,7 +57,7 @@ export class TransactionsController {
     @Param('id', ParseUUIDPipe) id: string, 
     @Body(new ZodValidationPipe(UpdateTransactionSchema)) updateTransactionDto: UpdateTransactionDto,
     @User() user: UserEntity,
-    @Query('updateNextChilds') updateNextChilds: boolean = false,
+    @Query('updateNextChilds', ParseBoolPipe) updateNextChilds: boolean = false,
   ) {
     return this.transactionsService.update(id, updateTransactionDto, user.id, updateNextChilds);
   }
