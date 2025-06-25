@@ -23,7 +23,6 @@ export const UpdateTransactionSchema = z.object({
       }
       return value;
     }),
-  recurringStartDate: z.string().date().optional().nullable(),
   recurringEndDate: z.string().date().optional().nullable(),
 })
 

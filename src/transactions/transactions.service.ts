@@ -372,17 +372,84 @@ export class TransactionsService {
       const result = await tx
         .update(schema.transactions)
         .set({
-          ...updateTransactionDto,
+          amount: updateTransactionDto.amount ?? transaction.amount,
+          transactionType: updateTransactionDto.transactionType ?? transaction.transactionType,
+          description: updateTransactionDto.description ?? transaction.description,
+          categoryId: updateTransactionDto.categoryId ?? transaction.categoryId,
           date: updateTransactionDto.date ? new Date(updateTransactionDto.date) : transaction.date,
-          recurringStartDate: updateTransactionDto.recurringStartDate ? new Date(updateTransactionDto.recurringStartDate) : transaction.recurringStartDate,
-          recurringEndDate: updateTransactionDto.recurringEndDate ? new Date(updateTransactionDto.recurringEndDate) : transaction.recurringEndDate,
           updatedAt: new Date(),
+
+          isRecurring: updateTransactionDto.isRecurring ?? transaction.isRecurring,
+          recurringFrequency: updateTransactionDto.recurringFrequency ?? transaction.recurringFrequency,
         })
         .where(eq(schema.transactions.id, id))
         .returning();
 
+      // Is update to recurring
+      let userAccountChange;
+      if (updateTransactionDto.isRecurring && !transaction.isRecurring) {
+        if (!updateTransactionDto.recurringFrequency) {
+          throw new BadRequestException('Recurring frequency is required to create a recurring transaction');
+        }
+
+        // Calc if exists transaction between start date and now, and add it
+        let adjustedDate = dayjs(result[0].date);
+        let lastTransaction = result[0];
+
+        const { value: frequencyValue, unit: frequencyUnit } = convertFrequencyToDayjsPeriod(result[0].recurringFrequency || 'monthly');
+
+        while (adjustedDate.add(frequencyValue, frequencyUnit).isBefore(dayjs())) {
+          adjustedDate = adjustedDate.add(frequencyValue, frequencyUnit);
+
+          // If the adjusted date is before the current date, we need to create a new transaction
+          const { id, ...rest } = lastTransaction;
+          const newTransaction: schema.NewTransaction = {
+            ...rest,
+            description: lastTransaction.description ? (/\(Child\)\s*$/i.test(lastTransaction.description) ? lastTransaction.description : `${lastTransaction.description} (Child)`) : 'Recurring Transaction',
+            date: adjustedDate.toDate(),
+            recurringStartDate: new Date(result[0].date) ,
+            recurringEndDate: result[0].recurringEndDate,
+            recurringParentId: result[0].id, // Link to the parent transaction
+            createdAt: new Date(),
+          };
+
+          // Insert the new transaction
+          const newResult: schema.Transaction[] = await tx.insert(schema.transactions).values(newTransaction).returning();
+          lastTransaction = newResult[0];
+
+          // Verify if the new transaction is in the actual budget period and update it
+          await this.budgetService.updateActualAmount(
+            newTransaction.categoryId,
+            userId,
+            newResult[0].transactionType,
+            newResult[0].amount,
+            newResult[0].date,
+            tx
+          );
+
+          // Update the total amount of the user account
+          const newTotalAmount = await this.userAccountService.updateTotalAmount(userId, newResult[0].transactionType, newResult[0].amount);
+          userAccountChange = newTotalAmount;
+        }
+
+        const recurringResult = { ...lastTransaction, lastTransactionDate: adjustedDate.toDate(), lastTransactionId: lastTransaction.id };
+
+        // Schedule the recurring transaction
+        await this.recurringTransactionService.scheduleRecurringTransaction(recurringResult, userId, recurringResult.id === result[0].id);
+
+        // Store the recurring transaction info
+        await tx.insert(schema.transactionRecurringInfo).values({
+          transactionParentId: result[0].id,
+          lastTransactionDate: recurringResult.lastTransactionDate,
+          lastTransactionId: recurringResult.lastTransactionId,
+          createdAt: new Date(),
+        });
+
+
+      }
+
       // Get the amount diff and transaction type
-      const amountDiff = updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0;
+      const amountDiff = userAccountChange + (updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0);
       let totalAmountDiff = amountDiff;
       const amountType = amountDiff > 0 ? 2 : 1;
 
@@ -508,15 +575,15 @@ export class TransactionsService {
             }
           }
 
-        await tx
-          .update(schema.transactions)
-          .set({
-            categoryId: updateTransactionDto.categoryId,
-            updatedAt: new Date(),
-          })
-          .where(
-            eq(schema.transactions.recurringParentId, transaction.id),
-          );
+          await tx
+            .update(schema.transactions)
+            .set({
+              categoryId: updateTransactionDto.categoryId,
+              updatedAt: new Date(),
+            })
+            .where(
+              eq(schema.transactions.recurringParentId, transaction.id),
+            );
 
         } else {
           // Update the actual amount of the old category budget
@@ -543,9 +610,6 @@ export class TransactionsService {
 
       // Update the total amount of the user account
       await this.userAccountService.updateTotalAmount(userId, amountType, Math.abs(totalAmountDiff));
-
-      // verify if the transaction is recurring
-      // TODO : make the recurring system
 
       return result[0];
     })
