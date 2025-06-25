@@ -383,10 +383,11 @@ export class TransactionsService {
 
       // Get the amount diff and transaction type
       const amountDiff = updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0;
+      let totalAmountDiff = amountDiff;
       const amountType = amountDiff > 0 ? 2 : 1;
 
       // Verify and update the budget
-      if (updateTransactionDto.amount && (!updateTransactionDto.categoryId || (updateTransactionDto.categoryId === transaction.categoryId))) { // If if the same category       
+      if (updateTransactionDto.amount) { // If if the same category       
         if (amountDiff !== 0) {
 
           // If it's a parent transaction of a recurring transaction, and updateNextChilds is true, we need to update all child transactions
@@ -404,6 +405,9 @@ export class TransactionsService {
                 )
               ).returning();
 
+            // add all new diff in the total amountDiff
+            totalAmountDiff += amountDiff * data.length;
+
             const budget = await tx
               .select()
               .from(schema.budgets)
@@ -416,40 +420,32 @@ export class TransactionsService {
               const startDateBudgetPeriod = dayjs(budget.lastResetDate).toDate();
               const endDateBudgetPeriod = dayjs(budget.lastResetDate).add(value, unit).toDate();
 
-              let totalAmountDiff = 0;
+              let totalAmountDiffForThisBudget = 0;
               for (const transaction of data) {
                 if (transaction.date >= startDateBudgetPeriod && transaction.date <= endDateBudgetPeriod) {
                   totalAmountDiff += Math.abs(amountDiff);
                 }
               }
 
-              // If is not is the same category, we don't need to update the budget amount, because the next if condition will handle it
-              if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) {
-                await this.budgetService.updateActualAmount(
-                  updateTransactionDto.categoryId ?? transaction.categoryId,
-                  userId,
-                  amountType,
-                  Math.abs((result[0].date >= startDateBudgetPeriod && result[0].date <= endDateBudgetPeriod) ? amountDiff : 0) + totalAmountDiff,
-                  dayjs().toDate(),
-                  tx
-                );
-              }
-            }
-
-            // TODO : Update the total Amount of the user Account
-
-          } else {
-            // If is not is the same category, we don't need to update the budget amount, because the next if condition will handle it
-            if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) {
               await this.budgetService.updateActualAmount(
                 updateTransactionDto.categoryId ?? transaction.categoryId,
                 userId,
                 amountType,
-                Math.abs(amountDiff),
-                updateTransactionDto.date ?? transaction.date,
+                Math.abs((result[0].date >= startDateBudgetPeriod && result[0].date <= endDateBudgetPeriod) ? amountDiff : 0) + totalAmountDiffForThisBudget,
+                dayjs().toDate(),
                 tx
               );
             }
+
+          } else {
+            await this.budgetService.updateActualAmount(
+              updateTransactionDto.categoryId ?? transaction.categoryId,
+              userId,
+              amountType,
+              Math.abs(amountDiff),
+              updateTransactionDto.date ?? transaction.date,
+              tx
+            );
           }
         }
       } else if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) { // If change the category
@@ -512,16 +508,15 @@ export class TransactionsService {
             }
           }
 
-          await tx
-            .update(schema.transactions)
-            .set({
-              categoryId: updateTransactionDto.categoryId,
-              updatedAt: new Date(),
-            })
-            .where(
-              eq(schema.transactions.recurringParentId, transaction.id),
-            );
-
+        await tx
+          .update(schema.transactions)
+          .set({
+            categoryId: updateTransactionDto.categoryId,
+            updatedAt: new Date(),
+          })
+          .where(
+            eq(schema.transactions.recurringParentId, transaction.id),
+          );
 
         } else {
           // Update the actual amount of the old category budget
@@ -547,7 +542,7 @@ export class TransactionsService {
       }
 
       // Update the total amount of the user account
-      await this.userAccountService.updateTotalAmount(userId, amountType, Math.abs(amountDiff));
+      await this.userAccountService.updateTotalAmount(userId, amountType, Math.abs(totalAmountDiff));
 
       // verify if the transaction is recurring
       // TODO : make the recurring system
