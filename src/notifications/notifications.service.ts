@@ -27,10 +27,11 @@ export class NotificationsService {
       createdAt: new Date(),
     }).returning();
 
+    const user = await this.db.select().from(schema.users).where(eq(schema.users.id, userId)).then((users) => users[0]);
+
     // If Slack integration is enabled, send a notification to Slack
     if (this.slackService) {
-      // TODO : Implement a more structured message format with levels, attachments and user mentions
-      await this.slackService.postToSlack(`New notification for user ${userId}: ${createNotificationDto.message}`);
+      await this.slackService.postToSlack(`${user ? user.firstName + ' ' + user.lastName : 'unknown'}: ${createNotificationDto.message}`, createNotificationDto.level);
     }
 
     return notification[0];
