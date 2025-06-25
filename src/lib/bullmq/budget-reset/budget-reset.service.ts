@@ -48,7 +48,7 @@ export class BudgetResetService {
     // Set the time to midnight
     nextReset.startOf('day');
 
-    const delay = nextReset.valueOf() - now.valueOf();
+    const delay = nextReset.diff(now, 'milliseconds');
     return delay > 0 ? delay : 0;
   }
 
