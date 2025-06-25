@@ -1,10 +1,11 @@
 import { Injectable, Inject, NotFoundException, forwardRef } from '@nestjs/common';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { NodePgDatabase, NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, ExtractTablesWithRelations } from 'drizzle-orm';
+import { PgTransaction } from 'drizzle-orm/pg-core';
 import { CategoriesService } from 'src/categories/categories.service';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween'
@@ -209,7 +210,14 @@ export class BudgetService {
    * @param transactionDate - The date of the transaction.
    * @returns The updated budget or null if outside the current period.
    */
-  async updateActualAmount(categoryId: string, userId: string, type: number, amount: number, transactionDate: string | Date): Promise<schema.Budget | null> {
+  async updateActualAmount(
+    categoryId: string, 
+    userId: string, 
+    type: number, 
+    amount: number, 
+    transactionDate: string | Date,
+    tx?: PgTransaction<NodePgQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>
+  ): Promise<schema.Budget | null> {
     const budget = await this.findOneByCategoryId(categoryId, userId);
       if (!budget) {
         return null;
@@ -237,16 +245,28 @@ export class BudgetService {
         return null;
       }
 
-      const result = await this.db
-      .update(schema.budgets)
-      .set({
-        actualAmount,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.budgets.id, budget.id))
-      .returning();
+      let data: schema.Budget[] | null = null;
+      if (tx) {
+        data = await tx
+        .update(schema.budgets)
+        .set({
+          actualAmount,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.budgets.id, budget.id))
+        .returning();
+      } else {
+        data = await this.db
+        .update(schema.budgets)
+        .set({
+          actualAmount,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.budgets.id, budget.id))
+        .returning();
+      }
 
-      if (result.length === 0) {
+      if (data.length === 0 || !data[0]) {
         return null;
       } else {
 
@@ -272,7 +292,7 @@ export class BudgetService {
         }
       }
 
-      return result[0];
+      return data[0];
     }
   }
 

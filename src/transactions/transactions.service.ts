@@ -4,7 +4,7 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and, desc, count, gte, sum, or, lte } from 'drizzle-orm';
+import { eq, and, desc, count, gte, sum, or, lte, sql } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
 import { BudgetService } from 'src/budget/budget.service';
@@ -328,9 +328,10 @@ export class TransactionsService {
    * @param id 
    * @param userId
    * @param updateTransactionDto 
+   * @param updateNextChilds
    * @returns 
    */
-  async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string) {
+  async update(id: string, updateTransactionDto: UpdateTransactionDto, userId: string, updateNextChilds: boolean = false): Promise<schema.Transaction> {
     // Get the user account
     const userAccount = await this.userAccountService.findOneByUserId(userId);
     if (!userAccount) {
@@ -387,13 +388,69 @@ export class TransactionsService {
       // Verify and update the budget
       if (updateTransactionDto.amount && (!updateTransactionDto.categoryId || (updateTransactionDto.categoryId === transaction.categoryId))) { // If if the same category       
         if (amountDiff !== 0) {
-          await this.budgetService.updateActualAmount(
-            updateTransactionDto.categoryId ?? transaction.categoryId,
-            userId,
-            amountType,
-            Math.abs(amountDiff),
-            updateTransactionDto.date ?? transaction.date,
-          );
+
+          // If it's a parent transaction of a recurring transaction, and updateNextChilds is true, we need to update all child transactions
+          if (transaction.isRecurring && !transaction.recurringParentId && updateNextChilds) {
+            // Update all child transactions of the parent transaction with the same initial amount
+            const data = await tx
+              .update(schema.transactions)
+              .set({
+                amount: result[0].amount,
+              })
+              .where(
+                and(
+                  eq(schema.transactions.recurringParentId, transaction.id),
+                  eq(schema.transactions.amount, transaction.amount)
+                )
+              ).returning();
+
+            const budget = await tx
+              .select()
+              .from(schema.budgets)
+              .where(eq(schema.budgets.categoryId, result[0].categoryId))
+              .then((result) => result[0]);
+
+            if (budget) {
+              // If a budget exist with the new category, we find all child transactions of the parent transaction in the actual budget period
+              const { value, unit } = convertFrequencyToDayjsPeriod(budget.recurringFrequency || 'monthly');
+              const startDateBudgetPeriod = dayjs(budget.lastResetDate).toDate();
+              const endDateBudgetPeriod = dayjs(budget.lastResetDate).add(value, unit).toDate();
+
+              let totalAmountDiff = 0;
+              for (const transaction of data) {
+                if (transaction.date >= startDateBudgetPeriod && transaction.date <= endDateBudgetPeriod) {
+                  totalAmountDiff += Math.abs(amountDiff);
+                }
+              }
+
+              // If is not is the same category, we don't need to update the budget amount, because the next if condition will handle it
+              if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) {
+                await this.budgetService.updateActualAmount(
+                  updateTransactionDto.categoryId ?? transaction.categoryId,
+                  userId,
+                  amountType,
+                  Math.abs((result[0].date >= startDateBudgetPeriod && result[0].date <= endDateBudgetPeriod) ? amountDiff : 0) + totalAmountDiff,
+                  dayjs().toDate(),
+                  tx
+                );
+              }
+            }
+
+            // TODO : Update the total Amount of the user Account
+
+          } else {
+            // If is not is the same category, we don't need to update the budget amount, because the next if condition will handle it
+            if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) {
+              await this.budgetService.updateActualAmount(
+                updateTransactionDto.categoryId ?? transaction.categoryId,
+                userId,
+                amountType,
+                Math.abs(amountDiff),
+                updateTransactionDto.date ?? transaction.date,
+                tx
+              );
+            }
+          }
         }
       } else if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) { // If change the category
 
@@ -409,7 +466,6 @@ export class TransactionsService {
             .then((result) => result[0]);
 
           if (newBudgetCategory) {
-            console.log('New budget category found:', newBudgetCategory);
             // If a budget exist with the new category, we find all child transactions of the parent transaction in the actual budget period
             const { value, unit } = convertFrequencyToDayjsPeriod(newBudgetCategory.recurringFrequency || 'monthly');
             const startDateBudgetPeriod = dayjs(newBudgetCategory.lastResetDate).toDate();
@@ -432,8 +488,6 @@ export class TransactionsService {
               )
               .then((result) => result[0]);
 
-              console.log('Child transactions found:', childTransactions);
-
             // If there are child transactions, we update the budget amount
             if (childTransactions && childTransactions.sumAmount) {
               // Update the actual amount of the old category budget
@@ -443,6 +497,7 @@ export class TransactionsService {
                 transaction.transactionType,
                 -parseInt(childTransactions.sumAmount),
                 dayjs().toDate(),
+                tx
               );
 
               // Update the actual amount of the new category budget
@@ -452,6 +507,7 @@ export class TransactionsService {
                 updateTransactionDto.transactionType ?? transaction.transactionType,
                 parseInt(childTransactions.sumAmount) ?? 0,
                 dayjs().toDate(),
+                tx
               );
             }
           }
@@ -475,6 +531,7 @@ export class TransactionsService {
             transaction.transactionType,
             -transaction.amount,
             transaction.date,
+            tx
           );
 
           // Update the actual amount of the new category budget
@@ -484,6 +541,7 @@ export class TransactionsService {
             updateTransactionDto.transactionType ?? transaction.transactionType,
             updateTransactionDto.amount ?? 0,
             updateTransactionDto.date ?? transaction.date,
+            tx
           );
         }
       }

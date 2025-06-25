@@ -57,8 +57,9 @@ export class TransactionsController {
     @Param('id', ParseUUIDPipe) id: string, 
     @Body(new ZodValidationPipe(UpdateTransactionSchema)) updateTransactionDto: UpdateTransactionDto,
     @User() user: UserEntity,
+    @Query('updateNextChilds') updateNextChilds: boolean = false,
   ) {
-    return this.transactionsService.update(id, updateTransactionDto, user.id);
+    return this.transactionsService.update(id, updateTransactionDto, user.id, updateNextChilds);
   }
 
   /**
