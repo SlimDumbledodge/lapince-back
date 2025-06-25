@@ -482,6 +482,7 @@ export class TransactionsService {
         await tx
           .delete(schema.transactions)
           .where(eq(schema.transactions.recurringParentId, id));
+        // TODO : Update the total Account Amount and Budget for the user and the budget category
       } else {
         // make the recurringParentId null at child transactions
         await tx

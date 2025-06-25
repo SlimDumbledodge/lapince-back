@@ -11,6 +11,7 @@ import isBetween from 'dayjs/plugin/isBetween'
 import { BudgetResetService } from 'src/lib/bullmq/budget-reset/budget-reset.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { TransactionsService } from 'src/transactions/transactions.service';
+import { convertFrequencyToDayjsPeriod } from 'src/common/convert/convert-frequency';
 
 dayjs.extend(isBetween);
 
@@ -52,8 +53,11 @@ export class BudgetService {
 
     // Adjust the start date to the next recurring frequency if it is before today
     let adjustedDate = startDate;
-    while (adjustedDate.add(createBudgetDto.recurringFrequency || 30, 'day').isBefore(today) || adjustedDate.add(createBudgetDto.recurringFrequency || 30, 'day').isSame(today)) {
-      adjustedDate = adjustedDate.add(createBudgetDto.recurringFrequency || 30, 'day');
+    const rawFrequency = createBudgetDto.recurringFrequency || 'monthly';
+    const {value: frequencyValue, unit: frequencyUnit} = convertFrequencyToDayjsPeriod(rawFrequency);
+
+    while (adjustedDate.add(frequencyValue, frequencyUnit).isBefore(today) || adjustedDate.add(frequencyValue, frequencyUnit).isSame(today)) {
+      adjustedDate = adjustedDate.add(frequencyValue, frequencyUnit);
     }
 
     const totalSinceStart = await this.transactionsService.findAllByCategoryId(createBudgetDto.categoryId, userId, adjustedDate.toDate());
@@ -152,8 +156,11 @@ export class BudgetService {
     let adjustedDate = startDate;
     let actualAmount = budget.actualAmount;
     if (adjustedDate) {
-      while (adjustedDate.add(updateBudgetDto.recurringFrequency || budget.recurringFrequency || 30, 'day').isBefore(today) || adjustedDate.add(updateBudgetDto.recurringFrequency || budget.recurringFrequency || 30, 'day').isSame(today)) {
-        adjustedDate = adjustedDate.add(updateBudgetDto.recurringFrequency || budget.recurringFrequency || 30, 'day');
+      const rawFrequency = updateBudgetDto.recurringFrequency || budget.recurringFrequency || 'monthly';
+      const {value: frequencyValue, unit: frequencyUnit} = convertFrequencyToDayjsPeriod(rawFrequency);
+
+      while (adjustedDate.add(frequencyValue, frequencyUnit).isBefore(today) || adjustedDate.add(frequencyValue, frequencyUnit).isSame(today)) {
+        adjustedDate = adjustedDate.add(frequencyValue, frequencyUnit);
       }
 
       const totalSinceStart = await this.transactionsService.findAllByCategoryId(budget.categoryId, userId, adjustedDate.toDate());
@@ -220,7 +227,10 @@ export class BudgetService {
 
       // Verify if the transaction is in this budget period
       const startDate = dayjs(budget.lastResetDate);
-      const endDate = dayjs(budget.lastResetDate).add(budget.recurringFrequency ?? 30, 'days');
+
+      const { value: frequencyValue, unit: frequencyUnit } = convertFrequencyToDayjsPeriod(budget.recurringFrequency);
+      const endDate = dayjs(budget.lastResetDate).add(frequencyValue, frequencyUnit);
+
       const transactionDay = dayjs(transactionDate);
 
       if (!transactionDay.isBetween(startDate, endDate, 'day', '[)')) {
