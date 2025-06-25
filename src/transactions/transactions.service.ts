@@ -11,6 +11,7 @@ import { BudgetService } from 'src/budget/budget.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { RecurringTransactionService } from 'src/lib/bullmq/recurring-transaction/recurring-transaction.service';
 import dayjs from 'dayjs';
+import { convertFrequencyToDayjsPeriod } from 'src/common/convert/convert-frequency';
 
 @Injectable()
 export class TransactionsService {
@@ -82,8 +83,11 @@ export class TransactionsService {
         // Calc if exists transaction between start date and now, and add it
         let adjustedDate = dayjs(result[0].date);
         let lastTransaction = result[0];
-        while (adjustedDate.add(result[0].recurringFrequency || 30, 'day').isBefore(dayjs())) {
-          adjustedDate = adjustedDate.add(createTransactionDto.recurringFrequency || 30, 'day');
+
+        const {value: frequencyValue, unit: frequencyUnit} = convertFrequencyToDayjsPeriod(result[0].recurringFrequency || 'monthly');
+        
+        while (adjustedDate.add(frequencyValue, frequencyUnit).isBefore(dayjs())) {
+          adjustedDate = adjustedDate.add(frequencyValue, frequencyUnit);
 
           // If the adjusted date is before the current date, we need to create a new transaction
           const { id, ...rest } = lastTransaction;
@@ -105,13 +109,13 @@ export class TransactionsService {
           await this.budgetService.updateActualAmount(
             newTransaction.categoryId,
             userId,
-            newTransaction.transactionType,
-            newTransaction.amount,
-            newTransaction.date,
+            newResult[0].transactionType,
+            newResult[0].amount,
+            newResult[0].date,
           );
 
           // Update the total amount of the user account
-          const newTotalAmount = await this.userAccountService.updateTotalAmount(userId, newTransaction.transactionType, newTransaction.amount);
+          const newTotalAmount = await this.userAccountService.updateTotalAmount(userId, newResult[0].transactionType, newResult[0].amount);
           userAccountChange = newTotalAmount;
         }
 

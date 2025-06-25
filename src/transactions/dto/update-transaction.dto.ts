@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { getClosestFrequency } from 'src/common/validator/closest-frequency';
+
+const budgetFrequencyEnum = ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'] as const;
+const budgetFrequency = z.enum(budgetFrequencyEnum);
 
 export const UpdateTransactionSchema = z.object({
   transactionType: z.preprocess((val) => {
@@ -10,7 +14,15 @@ export const UpdateTransactionSchema = z.object({
   description: z.string().max(500).optional(),
   categoryId: z.string().uuid().optional(),
   isRecurring: z.boolean().optional(),
-  recurringFrequency: z.number().optional().nullable(),
+  recurringFrequency: z
+    .union([budgetFrequency, z.number().int()])
+    .optional()
+    .transform((value) => {
+      if (typeof value === 'number') {
+        return getClosestFrequency(value);
+      }
+      return value;
+    }),
   recurringStartDate: z.string().date().optional().nullable(),
   recurringEndDate: z.string().date().optional().nullable(),
 })

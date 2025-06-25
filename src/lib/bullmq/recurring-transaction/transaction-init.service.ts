@@ -15,6 +15,7 @@ export class TransactionInitService implements OnModuleInit {
   async onModuleInit() {
     const trx = await this.db.select({
         transaction: schema.transactions,
+        transactionRecurringInfo: schema.transactionRecurringInfo,
       })
       .from(schema.transactionRecurringInfo)
       .leftJoin(schema.transactions, eq(schema.transactionRecurringInfo.lastTransactionId, schema.transactions.id))
@@ -22,9 +23,15 @@ export class TransactionInitService implements OnModuleInit {
     const accounts = await this.db.select().from(schema.userAccounts);
 
     for (const transaction of trx) {
-      const account = accounts.find(acc => acc.id === transaction.transaction.userAccountId);
+
+      if (!transaction.transaction) {
+        console.warn(`Transaction not found for recurring info ${transaction.transactionRecurringInfo.id}`);
+        continue;
+      }
+
+      const account = accounts.find(acc => acc.id === transaction.transaction?.userAccountId);
       if (!account) {
-        console.warn(`Account not found for transaction ${transaction.transaction.id}`);
+        console.warn(`Account not found for transaction ${transaction.transaction?.id}`);
         continue;
       } else {
         await this.reccuringTransactionService.scheduleRecurringTransaction(transaction.transaction, account.userId, true);

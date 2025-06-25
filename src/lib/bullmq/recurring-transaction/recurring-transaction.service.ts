@@ -2,6 +2,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import * as schema from "../../../db/schema"
+import { convertFrequencyToDayjsPeriod } from "src/common/convert/convert-frequency";
+import dayjs, {ManipulateType} from "dayjs";
 
 @Injectable()
 export class RecurringTransactionService {
@@ -24,7 +26,9 @@ export class RecurringTransactionService {
 
     const parentId = isParent ? transaction.id : transaction.recurringParentId;
 
-    const delay = this.calculateNextTransactionDelay(transaction.date, transaction.recurringFrequency ?? 30, transaction.recurringEndDate);
+    const {value: frequencyValue, unit: frequencyUnit} = convertFrequencyToDayjsPeriod(transaction.recurringFrequency ?? 'monthly');
+
+    const delay = this.calculateNextTransactionDelay(transaction.date, {value: frequencyValue, unit: frequencyUnit}, transaction.recurringEndDate);
 
     if (delay === 0) {
       this.logger.debug(`No further transactions scheduled for ${transaction.id} as the end date has passed or the next transaction is in the past.`);
@@ -48,18 +52,18 @@ export class RecurringTransactionService {
     );
   }
 
-  private calculateNextTransactionDelay(lastTransactionDate: string | Date, frequencyInDays: number, endDate: Date | null): number {
-    const now = new Date();
-    const last = new Date(lastTransactionDate);
-    
-    const nextTransaction = new Date(last.getTime() + frequencyInDays * 24 * 60 * 60 * 1000);
+  private calculateNextTransactionDelay(lastTransactionDate: string | Date, frequencyInDays: {value: number, unit: ManipulateType}, endDate: Date | null): number {
+    const now = dayjs();
+    const last = dayjs(lastTransactionDate);
 
-    if (endDate && new Date(endDate) < nextTransaction) {
+    const nextTransaction = last.add(frequencyInDays.value, frequencyInDays.unit);
+
+    if (endDate && dayjs(endDate) < nextTransaction) {
       this.logger.debug(`Recurring transaction ended on ${endDate}. No further transactions will be scheduled.`);
       return 0; // No further transactions if the end date has passed
     }
-  
-    const delay = nextTransaction.getTime() - now.getTime();
+
+    const delay = nextTransaction.diff(now, 'milliseconds');
     return delay > 0 ? delay : 0;
   }
 
