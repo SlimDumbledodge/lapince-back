@@ -4,7 +4,7 @@ import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import * as schema from 'src/db/schema';
-import { eq, and, desc, count, gte } from 'drizzle-orm';
+import { eq, and, desc, count, gte, sum, or, lte } from 'drizzle-orm';
 import { UserAccountService } from 'src/user-account/user-account.service';
 import { CategoriesService } from 'src/categories/categories.service';
 import { BudgetService } from 'src/budget/budget.service';
@@ -84,8 +84,8 @@ export class TransactionsService {
         let adjustedDate = dayjs(result[0].date);
         let lastTransaction = result[0];
 
-        const {value: frequencyValue, unit: frequencyUnit} = convertFrequencyToDayjsPeriod(result[0].recurringFrequency || 'monthly');
-        
+        const { value: frequencyValue, unit: frequencyUnit } = convertFrequencyToDayjsPeriod(result[0].recurringFrequency || 'monthly');
+
         while (adjustedDate.add(frequencyValue, frequencyUnit).isBefore(dayjs())) {
           adjustedDate = adjustedDate.add(frequencyValue, frequencyUnit);
 
@@ -119,7 +119,7 @@ export class TransactionsService {
           userAccountChange = newTotalAmount;
         }
 
-        const recurringResult = {...lastTransaction, lastTransactionDate: adjustedDate.toDate(), lastTransactionId: lastTransaction.id};
+        const recurringResult = { ...lastTransaction, lastTransactionDate: adjustedDate.toDate(), lastTransactionId: lastTransaction.id };
 
         // Schedule the recurring transaction
         await this.recurringTransactionService.scheduleRecurringTransaction(recurringResult, userId, recurringResult.id === result[0].id);
@@ -279,8 +279,8 @@ export class TransactionsService {
       throw new NotFoundException('User account not found');
     }
 
-    const startDateCondition = startDate 
-      ? and(gte(schema.transactions.date, startDate), eq(schema.transactions.userAccountId, userAccount.id), eq(schema.transactions.categoryId, categoryId)) 
+    const startDateCondition = startDate
+      ? and(gte(schema.transactions.date, startDate), eq(schema.transactions.userAccountId, userAccount.id), eq(schema.transactions.categoryId, categoryId))
       : and(eq(schema.transactions.userAccountId, userAccount.id), eq(schema.transactions.categoryId, categoryId));
 
     return await this.db
@@ -351,8 +351,19 @@ export class TransactionsService {
       }
     }
 
+    // If the transaction is a child of a recurring transaction, we cannot update it to be recurring or recurring related fields
     if (transaction.recurringParentId && (updateTransactionDto.isRecurring || updateTransactionDto.recurringFrequency || updateTransactionDto.recurringEndDate)) {
-      throw new NotFoundException('Cannot add a recurrency on a child transaction !');
+      throw new BadRequestException('Cannot add a recurrency on a child transaction !');
+    }
+
+    // If the transaction is a child of a recurring transaction, we cannot change only his category
+    if (transaction.recurringParentId && updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) {
+      throw new BadRequestException('Cannot change the category of a child transaction of a recurring transaction ! If you want to change the category, please update the category of the parent transaction.');
+    }
+
+    // If the transaction is a child of a recurring transaction, we cannot change the transaction type (In Future, we can allow this)
+    if (transaction.recurringParentId && updateTransactionDto.transactionType && (updateTransactionDto.transactionType !== transaction.transactionType)) {
+      throw new BadRequestException('Cannot change the transaction type of a child transaction of a recurring transaction ! If you want to change the transaction type, please stop the recurring transaction first.');
     }
 
     return await this.db.transaction(async (tx) => {
@@ -385,23 +396,96 @@ export class TransactionsService {
           );
         }
       } else if (updateTransactionDto.categoryId && (updateTransactionDto.categoryId !== transaction.categoryId)) { // If change the category
-        // Update the actual amount of the old category budget
-        await this.budgetService.updateActualAmount(
-          transaction.categoryId,
-          userId,
-          transaction.transactionType,
-          -transaction.amount,
-          transaction.date,
-        );
 
-        // Update the actual amount of the new category budget
-        await this.budgetService.updateActualAmount(
-          updateTransactionDto.categoryId,
-          userId,
-          updateTransactionDto.transactionType ?? transaction.transactionType,
-          updateTransactionDto.amount ?? 0,
-          updateTransactionDto.date ?? transaction.date,
-        )
+        // If it's a parent transaction of a recurring transaction, we need to update all of his child transactions
+        if (transaction.isRecurring && !transaction.recurringParentId) {
+          // Update all child transactions of the parent transaction
+
+          // get the total amount of parent + child transactions for update budget amount in budget period
+          const newBudgetCategory = await tx
+            .select()
+            .from(schema.budgets)
+            .where(eq(schema.budgets.categoryId, updateTransactionDto.categoryId))
+            .then((result) => result[0]);
+
+          if (newBudgetCategory) {
+            console.log('New budget category found:', newBudgetCategory);
+            // If a budget exist with the new category, we find all child transactions of the parent transaction in the actual budget period
+            const { value, unit } = convertFrequencyToDayjsPeriod(newBudgetCategory.recurringFrequency || 'monthly');
+            const startDateBudgetPeriod = dayjs(newBudgetCategory.lastResetDate).toDate();
+            const endDateBudgetPeriod = dayjs(newBudgetCategory.lastResetDate).add(value, unit).toDate();
+
+            const childTransactions = await tx
+              .select({
+                sumAmount: sum(schema.transactions.amount),
+              })
+              .from(schema.transactions)
+              .where(
+                and(
+                  or(
+                    eq(schema.transactions.recurringParentId, transaction.id),
+                    eq(schema.transactions.id, transaction.id), // Include the parent transaction itself
+                  ),
+                  gte(schema.transactions.date, startDateBudgetPeriod),
+                  lte(schema.transactions.date, endDateBudgetPeriod),
+                )
+              )
+              .then((result) => result[0]);
+
+              console.log('Child transactions found:', childTransactions);
+
+            // If there are child transactions, we update the budget amount
+            if (childTransactions && childTransactions.sumAmount) {
+              // Update the actual amount of the old category budget
+              await this.budgetService.updateActualAmount(
+                transaction.categoryId,
+                userId,
+                transaction.transactionType,
+                -parseInt(childTransactions.sumAmount),
+                dayjs().toDate(),
+              );
+
+              // Update the actual amount of the new category budget
+              await this.budgetService.updateActualAmount(
+                updateTransactionDto.categoryId,
+                userId,
+                updateTransactionDto.transactionType ?? transaction.transactionType,
+                parseInt(childTransactions.sumAmount) ?? 0,
+                dayjs().toDate(),
+              );
+            }
+          }
+
+          await tx
+            .update(schema.transactions)
+            .set({
+              categoryId: updateTransactionDto.categoryId,
+              updatedAt: new Date(),
+            })
+            .where(
+              eq(schema.transactions.recurringParentId, transaction.id),
+            );
+
+
+        } else {
+          // Update the actual amount of the old category budget
+          await this.budgetService.updateActualAmount(
+            transaction.categoryId,
+            userId,
+            transaction.transactionType,
+            -transaction.amount,
+            transaction.date,
+          );
+
+          // Update the actual amount of the new category budget
+          await this.budgetService.updateActualAmount(
+            updateTransactionDto.categoryId,
+            userId,
+            updateTransactionDto.transactionType ?? transaction.transactionType,
+            updateTransactionDto.amount ?? 0,
+            updateTransactionDto.date ?? transaction.date,
+          );
+        }
       }
 
       // Update the total amount of the user account
@@ -421,7 +505,7 @@ export class TransactionsService {
    * @param removeChildren - If true, remove all child transactions of a recurring transaction
    * @returns 
    */
-  async remove(id: string, userId: string, removeChildren: boolean): Promise<{ message: string  }> {
+  async remove(id: string, userId: string, removeChildren: boolean): Promise<{ message: string }> {
     // Get the user account
     const userAccount = await this.userAccountService.findOneByUserId(userId);
     if (!userAccount) {
@@ -512,7 +596,7 @@ export class TransactionsService {
       // Update the total amount of the user account
       await this.userAccountService.updateTotalAmount(userId, 1, transaction.amount);
 
-      return {message: 'Transaction removed successfully'};
+      return { message: 'Transaction removed successfully' };
     })
   }
 
@@ -544,9 +628,9 @@ export class TransactionsService {
           .orderBy(desc(schema.transactionRecurringInfo.lastTransactionDate))
           .limit(1)
           .then((result) => result[0]);
-        
+
         if (!lastChild) {
-          throw new NotFoundException('No child transactions found for this parent transaction'); 
+          throw new NotFoundException('No child transactions found for this parent transaction');
         }
 
         await this.recurringTransactionService.cancelRecurringTransaction(lastChild.lastTransactionId);
@@ -575,7 +659,7 @@ export class TransactionsService {
           })
           .where(eq(schema.transactions.recurringParentId, transactionId));
 
-        return {message: 'Recurring transaction stopped successfully'};
+        return { message: 'Recurring transaction stopped successfully' };
       });
     } else {
       // If recurringParentId is not null, it means this is a child transaction
@@ -599,9 +683,9 @@ export class TransactionsService {
           .orderBy(desc(schema.transactionRecurringInfo.lastTransactionDate))
           .limit(1)
           .then((result) => result[0]);
-        
+
         if (!lastChild) {
-          throw new NotFoundException('No child transactions found for this parent transaction'); 
+          throw new NotFoundException('No child transactions found for this parent transaction');
         }
 
         await this.recurringTransactionService.cancelRecurringTransaction(lastChild.lastTransactionId);
@@ -630,7 +714,7 @@ export class TransactionsService {
           })
           .where(eq(schema.transactions.recurringParentId, parentTransaction.id));
 
-      return {message: 'Recurring transaction stopped successfully'};
+        return { message: 'Recurring transaction stopped successfully' };
       });
     }
   }
