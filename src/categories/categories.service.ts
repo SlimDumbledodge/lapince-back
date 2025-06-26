@@ -5,7 +5,7 @@ import { DeleteCategoryDto } from './dto/delete-category.dto';
 import { DrizzleAsyncProvider } from 'src/db/drizzle/drizzle.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from 'src/db/schema';
-import { eq, or, isNull, count } from 'drizzle-orm';
+import { eq, or, isNull, count, and } from 'drizzle-orm';
 
 @Injectable()
 export class CategoriesService {
@@ -44,7 +44,7 @@ export class CategoriesService {
    * @returns 
    */
   async findOne(id: string, userId: string): Promise<schema.Category> {
-    const result = await this.db.select().from(schema.categories).where(eq(schema.categories.id, id))
+    const result = await this.db.select().from(schema.categories).where(and(eq(schema.categories.id, id), eq(schema.categories.isDeleted, false)))
     if (result.length === 0) {
       throw new NotFoundException('Category not found');
     }
