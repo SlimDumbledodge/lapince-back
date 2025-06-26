@@ -71,6 +71,8 @@ export class AppModule implements NestModule {
         { path: 'auth/forgot-password', method: RequestMethod.POST },
         { path: 'auth/reset-password', method: RequestMethod.POST },
         { path: '/admin/queues', method: RequestMethod.ALL }, // Exclude Bull Board routes
+        { path: 'google-oauth/google-auth', method: RequestMethod.GET },
+        { path: 'google-oauth/google-callback', method: RequestMethod.GET },
       )
       .forRoutes({
         path: '*splat',
