@@ -16,6 +16,7 @@ import { and, eq, or, lt } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { MailService } from 'src/mail/mail.service';
+import { oauth2_v2 } from 'googleapis';
 
 @Injectable()
 export class AuthService {
@@ -40,7 +41,9 @@ export class AuthService {
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
       email: registerDto.email,
-      password: registerDto.password
+      password: registerDto.password,
+      accountType: 'in-app',
+      locale: registerDto.locale || 'fr-FR',
     });
 
     if (!user) {
@@ -56,6 +59,7 @@ export class AuthService {
       userAccountId: userAccount.id,
       accountName: userAccount.accountName,
       amount: userAccount.amount,
+      currency: userAccount.currency || 'EUR', // Default currency
     }
 
     return this.createToken(data, ipAddress, userAgent);
@@ -86,11 +90,57 @@ export class AuthService {
   }
 
   /**
+   * Verify and login/register a user using Google OAuth.
+   * @param googleUser - The user data returned from Google OAuth.
+   * @returns An object containing access and refresh tokens along with user information.
+   * @throws {UnauthorizedException} If user creation fails.
+   */
+  async googleAuth(googleUser: oauth2_v2.Schema$Userinfo, ipAddress?: string, userAgent?: string) {
+    if (!googleUser.email) {
+      throw new UnauthorizedException('Google user email is required');
+    }
+
+    const user = await this.usersService.findByEmail(googleUser.email);
+
+    if (!user) {
+      // If user does not exist, create a new user
+      const newUser = await this.usersService.create({
+        firstName: googleUser.given_name || '',
+        lastName: googleUser.family_name || '',
+        email: googleUser.email,
+        password: uuidv4(), // Generate a random password
+        accountType: 'google',
+        locale: 'fr-FR', // Default locale, can be changed later
+        avatar: googleUser.picture || undefined,
+      });
+
+      if (!newUser) {
+        throw new UnauthorizedException('Failed to create user');
+      }
+
+      // Create a default user account for the new user
+      const userAccount = await this.userAccountService.create({
+        accountName: 'Default Account',
+        amount: 0,
+      }, newUser.id);
+
+      return this.createToken({
+        ...newUser,
+        accountName: userAccount.accountName,
+        amount: userAccount.amount,
+        currency: userAccount.currency || 'EUR', // Default currency
+      }, ipAddress, userAgent);
+    }
+
+    return this.createToken(user, ipAddress, userAgent);
+  }
+
+  /**
    * Generates and returns access and refresh tokens for a user.
    * @param user - The user entity with account information.
    * @returns An object containing JWT tokens and user session data.
    */
-  private async createToken(user: schema.User & { accountName: string, amount: number }, ipAddress?: string, userAgent?: string) {
+  private async createToken(user: schema.User & { accountName: string, amount: number, currency: string }, ipAddress?: string, userAgent?: string) {
     const payload = { email: user.email, sub: user.id, type: 'access' };
 
     const refresh_token = await this.createRefreshToken(user, ipAddress, userAgent);
@@ -103,6 +153,11 @@ export class AuthService {
         lastName: user.lastName,
         accountName: user.accountName,
         amount: user.amount,
+        firstLogin: user.firstLogin,
+        avatar: user.avatar,
+        locale: user.locale,
+        verifiedEmail: user.verifiedEmail,
+        currency: user.currency || 'EUR', // Default currency
       },
       sessionId: refresh_token.sessionId,
       accessToken: await this.jwtService.signAsync(payload, { expiresIn: process.env.JWT_EXPIRES_IN ?? '15m' }),

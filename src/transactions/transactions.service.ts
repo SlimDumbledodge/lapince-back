@@ -449,7 +449,7 @@ export class TransactionsService {
       }
 
       // Get the amount diff and transaction type
-      const amountDiff = userAccountChange + (updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0);
+      const amountDiff = updateTransactionDto.amount ? updateTransactionDto.amount - transaction.amount : 0;
       let totalAmountDiff = amountDiff;
       const amountType = amountDiff > 0 ? 2 : 1;
 

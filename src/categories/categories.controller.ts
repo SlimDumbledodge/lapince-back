@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ParseUUIDPipe, Query, DefaultValuePipe, ParseBoolPipe} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, CreateCategorySchema } from './dto/create-category.dto';
 import { UpdateCategoryDto, UpdateCategorySchema } from './dto/update-category.dto';
+import { DeleteCategoryDto } from './dto/delete-category.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { User, UserEntity } from '../decorator/user.decorator';
 
@@ -62,7 +63,15 @@ export class CategoriesController {
    * @returns 
    */
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string, @User() user: UserEntity,) {
-    return this.categoriesService.remove(id, user.id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string, 
+    @User() user: UserEntity,
+    @Query('replaceOldTransactionsCategoryId', new DefaultValuePipe(false), ParseBoolPipe) replaceOldTransactionsCategoryId: boolean = false,
+    @Query('newCategoryId', new DefaultValuePipe(undefined)) newCategoryId: string | undefined = undefined,
+  ) {
+    return this.categoriesService.remove(id, user.id, {
+      replaceOldTransactionsCategoryId,
+      newCategoryId,
+    } as DeleteCategoryDto);
   }
 }

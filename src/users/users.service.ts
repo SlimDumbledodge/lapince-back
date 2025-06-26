@@ -8,6 +8,7 @@ import * as schema from '../db/schema';
 import { eq, asc } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import { UserAccountService } from 'src/user-account/user-account.service';
+import { FirstLoginDto } from './dto/first-login.dto';
 
 @Injectable()
 export class UsersService {
@@ -38,6 +39,9 @@ export class UsersService {
       lastName : createUserDto.lastName,
       email : createUserDto.email,
       password: hashedPassword,
+      accountType: createUserDto.accountType,
+      locale: createUserDto.locale,
+      avatar: createUserDto.avatar,
       createdAt: new Date()
     }).returning()
 
@@ -84,7 +88,7 @@ export class UsersService {
    * @param email 
    * @returns schema.User | null
    */
-  async findByEmail(email: string): Promise<(schema.User & {accountId: string, accountName: string, amount: number}) |null> {
+  async findByEmail(email: string): Promise<(schema.User & {accountId: string, accountName: string, amount: number, currency: string}) |null> {
     const result = await this.db
       .select()
       .from(schema.users)
@@ -102,6 +106,7 @@ export class UsersService {
       accountId: userAccount?.id ?? null,
       accountName: userAccount?.accountName ?? null,
       amount: userAccount?.amount ?? null,
+      currency: userAccount?.currency ?? null,
     }
   }
 
@@ -135,6 +140,40 @@ export class UsersService {
     }
 
     return result[0]
+  }
+
+  /**
+   * First login for a user
+   * @param firstLoginDto 
+   * @param userId
+   * @returns schema.User
+   */
+  async firstLogin(firstLoginDto: FirstLoginDto, userId: string): Promise<schema.User> {
+    return await this.db.transaction(async (tx) => {
+      // Update the user account
+      await tx.update(schema.userAccounts).set({
+        accountName: firstLoginDto.accountName,
+        amount: firstLoginDto.totalAmount,
+        currency: firstLoginDto.currency,
+        updatedAt: new Date() 
+      })
+      .where(eq(schema.userAccounts.userId, userId))
+
+      // Update the user information
+      const user = await tx.update(schema.users).set({
+          locale: firstLoginDto.locale,
+          firstLogin: false,
+          updatedAt: new Date()
+        }).where(eq(schema.users.id, userId))
+        .returning()
+
+      if (user.length === 0) {
+        throw new BadRequestException('User not found')
+      }
+
+      // Return the updated user
+      return user[0];
+    })
   }
 
   /**

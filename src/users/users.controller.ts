@@ -1,8 +1,7 @@
-import { Controller, Get, Post, Body, Patch, Param, UsePipes, ParseUUIDPipe, Req, BadRequestException } from '@nestjs/common';
-import { Request } from 'express';
+import { Controller, Get, Post, Body, Patch } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto, CreateUserSchema } from './dto/create-user.dto';
 import { UpdateUserDto, UpdateUserSchema } from './dto/update-user.dto';
+import { FirstLoginDto, FirstLoginSchema } from './dto/first-login.dto';
 import { UpdatePasswordDto, UpdatePasswordSchema } from './dto/update-password.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { User, UserEntity } from '../decorator/user.decorator';
@@ -11,10 +10,12 @@ import { User, UserEntity } from '../decorator/user.decorator';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
-  @UsePipes(new ZodValidationPipe(CreateUserSchema))
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  @Post('first-login')
+  firstLogin(
+    @Body(new ZodValidationPipe(FirstLoginSchema)) firstLoginDto: FirstLoginDto,
+    @User() user: UserEntity,
+  ) {
+    return this.usersService.firstLogin(firstLoginDto, user.id);
   }
 
   @Get()

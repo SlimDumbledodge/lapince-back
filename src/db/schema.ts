@@ -1,17 +1,26 @@
 import { pgTable, text, timestamp, varchar, uuid, boolean, integer, real, json, pgEnum, interval, uniqueIndex, index, date, foreignKey } from 'drizzle-orm/pg-core';
 import { is, sql } from 'drizzle-orm';
+import { locales as localesZone } from './constants/locale';
+import { currencys as currencysZones } from './constants/currency';
 
 export const rawFrequency = pgEnum('raw_frequency', ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'])
 
 /**
  * User table
  */
+export const accountTypes = pgEnum('account_type', ['in-app', 'google']);
+export const locales = pgEnum('locale', localesZone);
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   firstName: varchar('first_name', { length: 64 }).notNull(),
   lastName: varchar('last_name', { length: 64 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   password: varchar('password', { length: 255 }).notNull(),
+  accountType: accountTypes('account_type').default('in-app').notNull(),
+  avatar: varchar('avatar', { length: 255 }).default('https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y').notNull(),
+  locale: locales('locale').default('fr-FR').notNull(),
+  firstLogin: boolean('first_login').notNull().default(true),
+  verifiedEmail: boolean('verified_email').notNull().default(false),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({
@@ -24,12 +33,14 @@ export type NewUser = typeof users.$inferInsert;
 /**
  * Session table
  */
+export const sessionTypes = pgEnum('session_connexion_type', ['in-app', 'google']);
 export const sessions = pgTable('sessions', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   tokenHash: varchar('token_hash', { length: 255 }).notNull(),
   userId: uuid('user_id').references(() => users.id).notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   isRevoked: boolean('is_revoked').notNull().default(false),
+  sessionType: sessionTypes('session_type').default('in-app').notNull(),
   ipAddress: varchar('ip_address', { length: 255 }),
   userAgent: varchar('user_agent', { length: 255 }),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
@@ -45,11 +56,13 @@ export type NewSession = typeof sessions.$inferInsert;
 /**
  * User account table
  */
+export const currencys = pgEnum('currency', currencysZones);
 export const userAccounts = pgTable('user_accounts', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid('user_id').references(() => users.id).notNull(),
   accountName: varchar('account_name', { length: 64 }).notNull(),
   amount: real('amount').notNull(),
+  currency: currencys('currency').default('EUR').notNull(),
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({
@@ -120,6 +133,8 @@ export const categories = pgTable('categories', {
   userId: uuid('user_id').references(() => users.id),
   color: varchar('color', { length: 10 }),
   icon: varchar('icon', { length: 64 }),
+  isDefault: boolean('is_default').notNull().default(false), // Indicates if the category is a default one
+  isDeleted: boolean('is_deleted').notNull().default(false), // Soft delete
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({
