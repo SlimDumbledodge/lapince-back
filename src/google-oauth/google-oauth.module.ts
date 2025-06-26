@@ -2,6 +2,7 @@ import { Module, DynamicModule } from "@nestjs/common";
 import { GoogleService } from "./google-oauth.service";
 import { ConfigModule } from "@nestjs/config";
 import { GoogleController } from "./google-oauth.controller";
+import { AuthModule } from "src/auth/auth.module";
 
 interface IGoogleModuleOptions {
   enabled: boolean;
@@ -25,7 +26,7 @@ export class GoogleModule {
 
     return {
       module: GoogleModule,
-      imports: [ConfigModule],
+      imports: [ConfigModule, AuthModule],
       providers: [GoogleService],
       controllers: [GoogleController],
       exports: [GoogleService],

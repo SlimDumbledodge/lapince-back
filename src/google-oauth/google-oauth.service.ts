@@ -1,12 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { google } from 'googleapis';
+import { Injectable, OnModuleInit, Logger, BadRequestException } from '@nestjs/common';
+import { google, oauth2_v2 } from 'googleapis';
 import { ConfigService } from '@nestjs/config';
-import { OAuth2Client } from 'google-auth-library';
+import { auth, OAuth2Client } from 'google-auth-library';
 import * as fs from 'fs';
 import * as path from 'path';
 
 @Injectable()
-export class GoogleService {
+export class GoogleService implements OnModuleInit {
+  private readonly logger = new Logger(GoogleService.name);
+
   private readonly scopesAPI: string[];
   private readonly credentialsPath: string;
 
@@ -17,6 +19,18 @@ export class GoogleService {
     );
     this.scopesAPI = this.configService.get('GOOGLE_SCOPES_API').split(',');
   }
+
+  onModuleInit() {
+    if (!fs.existsSync(this.credentialsPath)) {
+      this.logger.error(
+        `Google credentials file not found at path: ${this.credentialsPath}`,
+      );
+      throw new Error(
+        `Google credentials file not found at path: ${this.credentialsPath}`,
+      );
+    }
+  }
+
 
   readCredentials(filePath: string): IGoogleAuthCredentials {
     const credentialsPath = path.join(filePath);
@@ -54,23 +68,29 @@ export class GoogleService {
 
   async getAuthClientData(
     code: string,
-  ): Promise<{ email?: string | null; refreshToken: string; accessToken: string }> {
-    const authClient = this.getAuthClient();
-    const tokenData = await authClient.getToken(code);
-    const tokens = tokenData.tokens;
-    const refreshToken = tokens?.refresh_token || '';
-    const accessToken = tokens?.access_token || '';
+  ): Promise<{ userData: oauth2_v2.Schema$Userinfo; refreshToken: string; accessToken: string }> {
+    try {
+      const authClient = this.getAuthClient();
+      const tokenData = await authClient.getToken(code);
+      const tokens = tokenData.tokens;
+      const refreshToken = tokens?.refresh_token || '';
+      const accessToken = tokens?.access_token || '';
 
-    authClient.setCredentials(tokens);
+      authClient.setCredentials(tokens);
 
-    const googleAuth = google.oauth2({
-      version: 'v2',
-      auth: authClient,
-    } as any);
+      const googleAuth = google.oauth2({
+        version: 'v2',
+        auth: authClient,
+      } as any);
 
-    const googleUserInfo = await googleAuth.userinfo.get();
-    const email = googleUserInfo.data.email;
-    return { email, refreshToken, accessToken };
+      const googleUserInfo = await googleAuth.userinfo.get();
+ 
+      const userData = googleUserInfo.data;
+      return { userData, refreshToken, accessToken };
+    } catch (error) {
+      this.logger.error('Error getting auth client data', error);
+      throw new BadRequestException('Failed to get auth client data');
+    }
   }
 }
 
@@ -84,4 +104,14 @@ export interface IGoogleAuthCredentials {
     auth_provider_x509_cert_url: string;
     javascript_origins: string[];
   };
+}
+
+export interface IGoogleAuthUserInfo {
+  id: string;
+  email: string;
+  verified_email: boolean;
+  name: string;
+  given_name: string;
+  family_name: string;
+  picture: string;
 }

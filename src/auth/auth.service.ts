@@ -16,6 +16,7 @@ import { and, eq, or, lt } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { MailService } from 'src/mail/mail.service';
+import { oauth2_v2 } from 'googleapis';
 
 @Injectable()
 export class AuthService {
@@ -40,7 +41,9 @@ export class AuthService {
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
       email: registerDto.email,
-      password: registerDto.password
+      password: registerDto.password,
+      accountType: 'in-app',
+      locale: registerDto.locale || 'fr-FR',
     });
 
     if (!user) {
@@ -80,6 +83,51 @@ export class AuthService {
 
     if (!isPasswordMatch) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return this.createToken(user, ipAddress, userAgent);
+  }
+
+  /**
+   * Verify and login/register a user using Google OAuth.
+   * @param googleUser - The user data returned from Google OAuth.
+   * @returns An object containing access and refresh tokens along with user information.
+   * @throws {UnauthorizedException} If user creation fails.
+   */
+  async googleAuth(googleUser: oauth2_v2.Schema$Userinfo, ipAddress?: string, userAgent?: string) {
+    if (!googleUser.email) {
+      throw new UnauthorizedException('Google user email is required');
+    }
+
+    const user = await this.usersService.findByEmail(googleUser.email);
+
+    if (!user) {
+      // If user does not exist, create a new user
+      const newUser = await this.usersService.create({
+        firstName: googleUser.given_name || '',
+        lastName: googleUser.family_name || '',
+        email: googleUser.email,
+        password: uuidv4(), // Generate a random password
+        accountType: 'google',
+        locale: 'fr-FR', // Default locale, can be changed later
+        avatar: googleUser.picture || undefined,
+      });
+
+      if (!newUser) {
+        throw new UnauthorizedException('Failed to create user');
+      }
+
+      // Create a default user account for the new user
+      const userAccount = await this.userAccountService.create({
+        accountName: 'Default Account',
+        amount: 0,
+      }, newUser.id);
+
+      return this.createToken({
+        ...newUser,
+        accountName: userAccount.accountName,
+        amount: userAccount.amount,
+      }, ipAddress, userAgent);
     }
 
     return this.createToken(user, ipAddress, userAgent);

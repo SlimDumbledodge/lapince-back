@@ -38,6 +38,9 @@ export class UsersService {
       lastName : createUserDto.lastName,
       email : createUserDto.email,
       password: hashedPassword,
+      accountType: createUserDto.accountType,
+      locale: createUserDto.locale,
+      avatar: createUserDto.avatar,
       createdAt: new Date()
     }).returning()
 
