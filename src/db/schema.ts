@@ -1,6 +1,7 @@
 import { pgTable, text, timestamp, varchar, uuid, boolean, integer, real, json, pgEnum, interval, uniqueIndex, index, date, foreignKey } from 'drizzle-orm/pg-core';
 import { is, sql } from 'drizzle-orm';
 import { locales as localesZone } from './constants/locale';
+import { currencys as currencysZones } from './constants/currency';
 
 export const rawFrequency = pgEnum('raw_frequency', ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'])
 
@@ -55,7 +56,7 @@ export type NewSession = typeof sessions.$inferInsert;
 /**
  * User account table
  */
-export const currencys = pgEnum('currency', ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'SEK', 'NZD']);
+export const currencys = pgEnum('currency', currencysZones);
 export const userAccounts = pgTable('user_accounts', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid('user_id').references(() => users.id).notNull(),
