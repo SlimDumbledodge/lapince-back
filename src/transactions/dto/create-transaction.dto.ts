@@ -27,7 +27,7 @@ export const CreateTransactionSchema = z.object({
   recurringEndDate: z.string().datetime().or(z.string().date()).optional().nullable(),
 }).refine((data) => {
   // Ensure that if isRecurring is true, recurringFrequency is provided
-  if (data.isRecurring) {
+  if (data.isRecurring === true) {
     if (!data.recurringFrequency || data.recurringFrequency === null) {
       return false;
     }

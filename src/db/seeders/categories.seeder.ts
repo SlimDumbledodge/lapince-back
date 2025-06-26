@@ -36,6 +36,7 @@ const categoriesData = [
     name: 'Autres',
     color: '#7c86ff',
     icon: 'QuestionMark',
+    isDefault: true, // Default category for uncategorized transactions
   },
   {
     name: 'Factures',

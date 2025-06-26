@@ -133,6 +133,8 @@ export const categories = pgTable('categories', {
   userId: uuid('user_id').references(() => users.id),
   color: varchar('color', { length: 10 }),
   icon: varchar('icon', { length: 64 }),
+  isDefault: boolean('is_default').notNull().default(false), // Indicates if the category is a default one
+  isDeleted: boolean('is_deleted').notNull().default(false), // Soft delete
   createdAt: timestamp('created_at').default(sql`now()`).notNull(),
   updatedAt: timestamp('updated_at').default(sql`now()`).notNull(),
 }, (t) => ({
