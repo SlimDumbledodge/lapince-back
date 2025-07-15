@@ -7,7 +7,13 @@ import { CategoriesModule } from 'src/categories/categories.module';
 import { BudgetModule } from 'src/budget/budget.module';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { RecurringTransactionModule } from 'src/lib/bullmq/recurring-transaction/recurring-transaction.module';
+import { RecurringTransactionHelper } from './services/recurring-transaction.helper';
+import { TransactionFinderService } from './services/transaction-finder.service';
+import { TransactionUpdateService } from './services/transaction-update.service';
 
+/**
+ * Module for transaction management
+ */
 @Module({
   imports: [
     DrizzleModule, 
@@ -18,7 +24,16 @@ import { RecurringTransactionModule } from 'src/lib/bullmq/recurring-transaction
     forwardRef(() => RecurringTransactionModule),
   ],
   controllers: [TransactionsController],
-  providers: [TransactionsService],
-  exports: [TransactionsService],
+  providers: [
+    TransactionsService,
+    RecurringTransactionHelper,
+    TransactionFinderService,
+    TransactionUpdateService
+  ],
+  exports: [
+    TransactionsService,
+    RecurringTransactionHelper,
+    TransactionFinderService
+  ],
 })
 export class TransactionsModule {}
