@@ -10,7 +10,7 @@ export class ZodValidationPipe implements PipeTransform {
 
     if (!result.success) {
       // Affiche les erreurs détaillées pour faciliter le débogage
-      console.error('Validation errors:', result.error.format());
+      // console.error('Validation errors:', result.error.format());
 
       throw new BadRequestException({
         message: 'Validation failed',

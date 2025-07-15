@@ -8,7 +8,7 @@ export const mockBudgetsResult: schema.Budget = {
   categoryId: 'category_uuid_string',
   totalAmount: 1000,
   actualAmount: 800,
-  recurringFrequency: 30,
+  recurringFrequency: 'monthly',
   recurringStartDate: '2023-01-01',
   lastResetDate: '2023-01-31',
 }
