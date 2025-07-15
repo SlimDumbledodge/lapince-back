@@ -7,6 +7,11 @@ export const mockUsersResult: schema.User = {
   lastName: 'DOE',
   email: 'admin@admin.com',
   password: '$2b$10$gA1jhE5r1FZmj1F5hTRnp.P2Kk3FNadEZemVMdeeIvAeuwTCr5w.C', // admin
+  accountType: 'in-app',
+  locale: 'fr-FR',
+  avatar: 'https://example.com/avatar.jpg',
+  firstLogin: false,
+  verifiedEmail: true,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
