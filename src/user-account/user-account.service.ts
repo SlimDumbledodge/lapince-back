@@ -60,16 +60,21 @@ export class UserAccountService {
   }
 
   /**
-   * Update a user account by is id.
+   * Update a user account by is user id.
    * @param id 
    * @param updateUserAccountDto 
    * @returns 
    */
   async update(id: string, updateUserAccountDto: UpdateUserAccountDto): Promise<schema.UserAccount>  {
+    const existingAccount = await this.findOneByUserId(id);
+    if (!existingAccount) {
+      throw new NotFoundException('User account not found');
+    }
+
     const result = await this.db.update(schema.userAccounts).set({
       ...updateUserAccountDto,
       updatedAt: new Date(),
-    }).where(eq(schema.userAccounts.id, id)).returning()
+    }).where(eq(schema.userAccounts.id, existingAccount.id)).returning()
     return result[0];
   }
 

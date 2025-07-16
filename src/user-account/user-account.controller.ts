@@ -44,12 +44,12 @@ export class UserAccountController {
   }
 
   /**
-   * Update a user account by id
+   * Update a user account by his user id
    * @param id 
    * @param updateUserAccountDto 
    * @returns 
    */
-  @Patch(':id')
+  @Patch('user/:id')
   update(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodValidationPipe(UpdateUserAccountSchema)) updateUserAccountDto: UpdateUserAccountDto) {
     return this.userAccountService.update(id, updateUserAccountDto);
   }

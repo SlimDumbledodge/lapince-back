@@ -71,6 +71,7 @@ describe('AuthService', () => {
         password: 'admin',
         accountName: 'My Account',
         amount: 1000,
+        locale: 'fr-FR',
       }
 
       mockUsersService.findByEmail.mockResolvedValueOnce(null)
@@ -100,6 +101,7 @@ describe('AuthService', () => {
         password: 'admin',
         accountName: 'My Account',
         amount: 1000,
+        locale: 'fr-FR',
       }
 
       mockUsersService.findByEmail.mockResolvedValueOnce(mockUsersResult)
