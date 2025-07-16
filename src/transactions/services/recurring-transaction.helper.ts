@@ -31,7 +31,7 @@ export class RecurringTransactionHelper {
     if (!parentDescription) return 'Recurring Transaction';
     return /\(Child\)\s*$/i.test(parentDescription) 
       ? parentDescription 
-      : `${parentDescription} (Child)`;
+      : `${parentDescription}`; // TODO : Add numbering logic
   }
 
   /**
