@@ -1,3 +1,143 @@
+# LaPince Back (lapince-back)
+
+A backend API built with NestJS and TypeScript for the "La Pince" application. It uses Drizzle ORM for database access, BullMQ for background jobs, and integrates with Google OAuth, Slack, and an email system.
+
+**Status:** Active development
+
+**Tech Stack:**
+- **Runtime:** Node.js + TypeScript
+- **Framework:** NestJS
+- **ORM:** Drizzle ORM / drizzle-kit
+- **Queue:** BullMQ
+- **DB Driver:** `pg` (Postgres)
+- **Template engine:** Pug
+- **Testing:** Jest + Supertest
+- **Linting / Formatting:** ESLint + Prettier
+
+**Main Features:**
+- Authentication (JWT + Google OAuth)
+- User and account management
+- Budget and transactions APIs
+- Notifications and email delivery
+- Background processing with BullMQ
+- Database migrations & seeds via `drizzle-kit`
+
+**Repository layout (key files)**
+- `src/` - application source
+- `src/main.ts` - app bootstrap
+- `src/app.module.ts` - root module
+- `src/db/` - Drizzle schema and seed scripts
+- `Dockerfile`, `docker-compose.yaml` - container definitions
+- `jest.json`, `test/` - end-to-end testing
+
+**Prerequisites**
+- Node.js (recommended >= 18)
+- PostgreSQL database
+- Redis (for BullMQ)
+- Yarn or npm
+
+**Quick Setup**
+
+1. Install dependencies
+
+```powershell
+npm install
+```
+
+2. Create your `.env` file in the project root and provide the required variables. Typical variables include:
+
+- `DATABASE_URL` - Postgres connection string (e.g. `postgresql://user:pass@host:5432/dbname`)
+- `REDIS_URL` - Redis connection for BullMQ
+- `PORT` - application port (default: `3000`)
+- `JWT_SECRET` - JWT secret
+- Mail-related variables for SMTP (e.g. `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`)
+- Google OAuth client secrets and any other provider credentials
+
+3. Generate or run migrations (drizzle-kit)
+
+```powershell
+npm run generate    # generate schema/migrations
+npm run migrate     # apply migrations
+```
+
+4. Seed the database (optional)
+
+```powershell
+npm run seed
+```
+
+**Available NPM Scripts**
+
+- `npm run start:dev` : Start in watch/dev mode
+- `npm run start` : Start (Nest default)
+- `npm run start:prod` : Start production from `dist/`
+- `npm run build` : Build the project (output to `dist/`)
+- `npm run test` : Run unit tests
+- `npm run test:e2e` : Run e2e tests
+- `npm run lint` : Run ESLint and auto-fix
+- `npm run format` : Run Prettier to format source
+- `npm run generate` : Run `drizzle-kit generate`
+- `npm run migrate` : Run `drizzle-kit migrate`
+- `npm run seed` : Run `ts-node src/db/seed.ts`
+
+Check `package.json` for the full script list.
+
+**Running with Docker**
+
+Build and run the project with Docker Compose (requires Docker and Docker Compose):
+
+```powershell
+docker compose up --build
+```
+
+This repository includes `Dockerfile` and `docker-compose.yaml` which you can adapt to provide environment variables for Postgres/Redis and for the app.
+
+**Testing**
+
+Run unit tests:
+
+```powershell
+npm test
+```
+
+Run e2e tests:
+
+```powershell
+npm run test:e2e
+```
+
+**Lint & Format**
+
+```powershell
+npm run lint
+npm run format
+```
+
+**Environment and Secrets**
+
+Secrets and credentials (JWT secrets, OAuth client IDs/secrets, SMTP credentials, DB credentials) must be supplied via environment variables. Prefer a local `.env` during development and secret management or environment variables for CI/prod.
+
+**Development Notes**
+- The project leverages `tsconfig-paths` for path mapping during tests and development.
+- Background workers are implemented with BullMQ and expect a running Redis instance.
+- Drizzle is used for migrations and schema generation — see `drizzle.config.ts` and `src/db`.
+
+**Contributing**
+
+Contributions are welcome. Please open issues or PRs targeting the `develop` branch. Add tests for new behavior and follow existing lint/format rules.
+
+**License**
+
+This project is marked `UNLICENSED` in `package.json`. Check with the maintainers before reusing code in other projects.
+
+---
+
+If you want, I can also:
+- add a `.env.example` file with common variables,
+- add a short developer quickstart script,
+- or generate a minimal CONTRIBUTING.md / PR template.
+
+File created: `README.md`
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
